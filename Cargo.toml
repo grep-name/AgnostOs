@@ -1,0 +1,10 @@
+[package]
+name = "something"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+uefi = "0.37.0"
+
+[profile.release]
+panic = "abort"

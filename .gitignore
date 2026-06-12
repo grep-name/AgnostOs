@@ -1,3 +1,8 @@
 build/boot.bin
 build/kernel.bin
 build/os.bin
+
+
+# Added by cargo
+
+/target
