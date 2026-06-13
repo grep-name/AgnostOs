@@ -1,5 +1,6 @@
 pub mod graphics {
 
+    #[derive(Debug)]
     pub struct Framebuffer {
         pub ptr: *mut u8,
         pub width: usize,
