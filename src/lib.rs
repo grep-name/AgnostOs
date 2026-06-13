@@ -5,6 +5,8 @@ pub mod graphics {
     pub const FONT_WIDTH: usize = 8;
     pub const FONT_HEIGHT: usize = 8;
 
+    type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
+
     pub fn draw_rec(
         gop: &mut GraphicsOutput,
         (x, y): (usize, usize),
@@ -15,8 +17,6 @@ pub mod graphics {
         let stride = mi.stride();
         let (width, height) = mi.resolution();
         let mut fb = gop.frame_buffer();
-
-        type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
 
         unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
             unsafe { fb.write_value(pixel_base, rgb) }
@@ -112,7 +112,6 @@ pub mod graphics {
         let stride = mi.stride();
         let mut fb = gop.frame_buffer();
 
-        type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
         unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
             unsafe { fb.write_value(pixel_base, rgb) }
         }
@@ -158,7 +157,6 @@ pub mod graphics {
         let stride = mi.stride();
         let mut fb = gop.frame_buffer();
 
-        type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
         unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
             unsafe { fb.write_value(pixel_base, rgb) }
         }
