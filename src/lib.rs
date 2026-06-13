@@ -1,5 +1,9 @@
 pub mod graphics {
+    use font8x8::legacy::BASIC_LEGACY;
     use uefi::proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat};
+
+    pub const FONT_WIDTH: usize = 8;
+    pub const FONT_HEIGHT: usize = 8;
 
     pub fn draw_rec(
         gop: &mut GraphicsOutput,
@@ -140,6 +144,66 @@ pub mod graphics {
                     }
                 }
             }
+        }
+    }
+
+    pub fn draw_text(
+        gop: &mut GraphicsOutput,
+        text: &str,
+        (x, y): (usize, usize),
+        color: [u8; 3],
+        scale: usize,
+    ) {
+        let mi = gop.current_mode_info();
+        let stride = mi.stride();
+        let mut fb = gop.frame_buffer();
+
+        type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
+        unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
+            unsafe { fb.write_value(pixel_base, rgb) }
+        }
+        unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
+            unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
+        }
+        let write_pixel: PixelWriter = match mi.pixel_format() {
+            PixelFormat::Rgb => write_pixel_rgb,
+            PixelFormat::Bgr => write_pixel_bgr,
+            _ => return,
+        };
+
+        let mut cursor_x = x;
+        let cursor_y = y;
+
+        for ch in text.chars() {
+            let glyph = get_glyph(ch);
+
+            for (row, byte) in glyph.iter().enumerate() {
+                for col in 0..8 {
+                    if byte & (1 << col) != 0 {
+                        // draw a scale x scale block for this bit
+                        for sy in 0..scale {
+                            for sx in 0..scale {
+                                let px = cursor_x + col * scale + sx;
+                                let py = cursor_y + row * scale + sy;
+                                unsafe {
+                                    let pixel_index = (py * stride) + px;
+                                    write_pixel(&mut fb, 4 * pixel_index, color);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            cursor_x += FONT_WIDTH * scale + scale; // advance + 1px spacing
+        }
+    }
+
+    fn get_glyph(ch: char) -> [u8; 8] {
+        let idx = ch as usize;
+        if idx < 128 {
+            BASIC_LEGACY[idx]
+        } else {
+            BASIC_LEGACY[0]
         }
     }
 }

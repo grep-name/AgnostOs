@@ -37,6 +37,7 @@ fn main() -> Status {
     something::graphics::draw_rec(gop, (20, 20), (30, 30), [255, 255, 255]);
     something::graphics::draw_line(gop, (20, 20), (30, 30), [255, 255, 255]);
     something::graphics::draw_circle(gop, 40, (20, 20), [255, 255, 255]);
+    something::graphics::draw_text(gop, "something something", (100, 100), [255, 255, 255], 1);
 
     uefi::println!("something");
 
