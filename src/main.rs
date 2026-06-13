@@ -32,11 +32,11 @@ fn main() -> Status {
 
     set_graphics_mode(gop);
 
-    something::graphics::clear_background(gop, [20, 255, 50]);
-    something::graphics::draw_rec(gop, (20, 20), (30, 30), [255, 255, 255]);
-    something::graphics::draw_line(gop, (20, 20), (30, 30), [255, 255, 255]);
-    something::graphics::draw_circle(gop, 40, (20, 20), [255, 255, 255]);
-    something::graphics::draw_text(gop, "something something", (100, 100), [255, 255, 255], 1);
+    something::uefi_graphics::clear_background(gop, [20, 255, 50]);
+    something::uefi_graphics::draw_rec(gop, (20, 20), (30, 30), [255, 255, 255]);
+    something::uefi_graphics::draw_line(gop, (20, 20), (30, 30), [255, 255, 255]);
+    something::uefi_graphics::draw_circle(gop, 40, (20, 20), [255, 255, 255]);
+    something::uefi_graphics::draw_text(gop, "something something", (100, 100), [255, 255, 255], 1);
 
     uefi::println!("something");
 
