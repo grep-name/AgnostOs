@@ -7,6 +7,13 @@ pub mod graphics {
 
     type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
 
+    unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
+        unsafe { fb.write_value(pixel_base, rgb) }
+    }
+    unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
+        unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
+    }
+
     pub fn draw_rec(
         gop: &mut GraphicsOutput,
         (x, y): (usize, usize),
@@ -17,13 +24,6 @@ pub mod graphics {
         let stride = mi.stride();
         let (width, height) = mi.resolution();
         let mut fb = gop.frame_buffer();
-
-        unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-            unsafe { fb.write_value(pixel_base, rgb) }
-        }
-        unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-            unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
-        }
 
         let write_pixel: PixelWriter = match mi.pixel_format() {
             PixelFormat::Rgb => write_pixel_rgb,
@@ -112,12 +112,6 @@ pub mod graphics {
         let stride = mi.stride();
         let mut fb = gop.frame_buffer();
 
-        unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-            unsafe { fb.write_value(pixel_base, rgb) }
-        }
-        unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-            unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
-        }
         let write_pixel: PixelWriter = match mi.pixel_format() {
             PixelFormat::Rgb => write_pixel_rgb,
             PixelFormat::Bgr => write_pixel_bgr,
@@ -157,12 +151,6 @@ pub mod graphics {
         let stride = mi.stride();
         let mut fb = gop.frame_buffer();
 
-        unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-            unsafe { fb.write_value(pixel_base, rgb) }
-        }
-        unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-            unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
-        }
         let write_pixel: PixelWriter = match mi.pixel_format() {
             PixelFormat::Rgb => write_pixel_rgb,
             PixelFormat::Bgr => write_pixel_bgr,

@@ -1,11 +1,10 @@
 #![no_main]
 #![no_std]
 
-use core::panic::PanicInfo;
 use uefi::{
     boot::{OpenProtocolAttributes, OpenProtocolParams},
     prelude::*,
-    proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat},
+    proto::console::gop::GraphicsOutput,
 };
 
 #[entry]
