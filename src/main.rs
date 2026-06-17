@@ -5,13 +5,13 @@ use core::time::Duration;
 
 extern crate alloc;
 
-use alloc::format;
+use alloc::{format, string::String};
 use something::{allocator::SomethingAllocator, graphics::Framebuffer};
 use uefi::{
-    boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
+    boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams, memory_map},
     mem::memory_map::MemoryMap,
     prelude::*,
-    proto::console::gop::{GraphicsOutput, PixelFormat},
+    proto::console::gop::GraphicsOutput,
 };
 
 #[global_allocator]
@@ -66,6 +66,7 @@ fn main() -> Status {
         }
     }
 
+    // Giving the allocator the pointer to heap
     ALLOCATOR.init(heap_start, heap_size);
 
     let s = format!(
@@ -75,8 +76,13 @@ fn main() -> Status {
         heap_size / (1024 * 1024)
     );
 
+    let msg = stress_test();
+
     something::graphics::clear_background(&fb, [255, 255, 255]);
+
+    something::graphics::draw_text(&fb, &msg, (100, 300), [0, 0, 0], 1);
     something::graphics::draw_text(&fb, &s, (100, 100), [0, 0, 0], 1);
+    something::graphics::draw_text(&fb, "survived 10000 allocs!", (100, 200), [0, 0, 0], 1);
 
     loop {}
 }
@@ -91,4 +97,35 @@ fn set_graphics_mode(gop: &mut GraphicsOutput) {
         .unwrap();
 
     gop.set_mode(&mode).expect("Failed to set graphics mode");
+}
+
+/// Allocates 10000 vectors to stress test our allocator implementation
+fn stress_test() -> String {
+    // Stress testing
+    let addr1;
+    let addr2;
+
+    {
+        let v: alloc::vec::Vec<u8> = alloc::vec![1, 2, 3];
+        addr1 = v.as_ptr() as usize;
+    }
+
+    {
+        let v2: alloc::vec::Vec<u8> = alloc::vec![4, 5, 6];
+        addr2 = v2.as_ptr() as usize;
+    }
+
+    for _ in 0..10000 {
+        let _: alloc::vec::Vec<u8> = alloc::vec![0u8; 1024];
+    }
+
+    // if dealloc works, addr1 and addr2 should be the same (or very close)
+    let msg = format!(
+        "addr1: {:#x} addr2: {:#x} same: {}",
+        addr1,
+        addr2,
+        addr1 == addr2
+    );
+
+    return msg;
 }

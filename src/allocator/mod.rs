@@ -1,50 +1,89 @@
 use core::alloc::GlobalAlloc;
 use core::alloc::Layout;
-use core::sync::atomic::AtomicUsize;
-use core::sync::atomic::Ordering;
+
+struct FreeChunk {
+    size: usize,
+    next: *mut FreeChunk,
+}
 
 pub struct SomethingAllocator {
-    heap_start: AtomicUsize,
-    heap_end: AtomicUsize,
+    head: spin::Mutex<*mut FreeChunk>,
 }
+
+unsafe impl Send for SomethingAllocator {}
+unsafe impl Sync for SomethingAllocator {}
 
 impl SomethingAllocator {
     pub const fn new() -> Self {
         Self {
-            heap_start: AtomicUsize::new(0),
-            heap_end: AtomicUsize::new(0),
+            head: spin::Mutex::new(core::ptr::null_mut()),
         }
     }
 
     pub fn init(&self, heap_start: usize, heap_size: usize) {
-        self.heap_start.store(heap_start, Ordering::Relaxed);
-        self.heap_end
-            .store(heap_start + heap_size, Ordering::Relaxed)
+        unsafe {
+            let chunk = heap_start as *mut FreeChunk;
+            (*chunk).size = heap_size;
+            (*chunk).next = core::ptr::null_mut();
+            *self.head.lock() = chunk;
+        }
     }
 }
 
 unsafe impl GlobalAlloc for SomethingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let current = self.heap_start.load(Ordering::Relaxed);
+        unsafe {
+            let size = layout.size().max(core::mem::size_of::<FreeChunk>());
+            let align = layout.align().max(core::mem::align_of::<FreeChunk>());
 
-        // Align the pointer
-        let align = layout.align();
-        let aligned = (current + align - 1) & !(align - 1);
-        let next = aligned + layout.size();
+            let mut head = self.head.lock();
+            let mut current: *mut *mut FreeChunk = &mut *head;
+            let mut prev: *mut *mut FreeChunk = &mut *head;
 
-        let end = self.heap_end.load(Ordering::Relaxed);
+            while !(*current).is_null() {
+                let chunk = *current;
+                let start = chunk as usize;
+                let aligned = (start + align - 1) & !(align - 1);
+                let end = aligned + size;
+                let chunk_end = start + (*chunk).size;
 
-        if next > end {
-            // Out of memory
-            return core::ptr::null_mut();
+                if end <= chunk_end {
+                    // this chunk fits — check if remainder is big enough to keep
+                    let remainder_start = end;
+                    let remainder_size = chunk_end - end;
+
+                    if remainder_size >= core::mem::size_of::<FreeChunk>() {
+                        // split: put remainder back as a new free chunk
+                        let remainder = remainder_start as *mut FreeChunk;
+                        (*remainder).size = remainder_size;
+                        (*remainder).next = (*chunk).next;
+                        *prev = remainder;
+                    } else {
+                        // too small to split, remove chunk entirely
+                        *prev = (*chunk).next;
+                    }
+
+                    return aligned as *mut u8;
+                }
+                prev = &mut (*chunk).next;
+                current = &mut (*chunk).next;
+            }
         }
-
-        self.heap_start.store(next, Ordering::Relaxed);
-
-        return aligned as *mut u8;
+        return core::ptr::null_mut();
     }
 
-    unsafe fn dealloc(&self, _: *mut u8, _: Layout) {
-        todo!()
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        unsafe {
+            let size = layout.size().max(core::mem::size_of::<FreeChunk>());
+            let mut head = self.head.lock();
+
+            // write a FreeChunk header at the freed pointer
+            let chunk = ptr as *mut FreeChunk;
+            (*chunk).size = size;
+
+            // insert at head of free list
+            (*chunk).next = *head;
+            *head = chunk;
+        }
     }
 }
