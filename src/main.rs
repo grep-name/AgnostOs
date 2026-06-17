@@ -2,12 +2,20 @@
 #![no_std]
 
 use core::time::Duration;
-use something::graphics::Framebuffer;
+
+extern crate alloc;
+
+use alloc::{format, string::String};
+use something::{allocator::SomethingAllocator, graphics::Framebuffer};
 use uefi::{
-    boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
+    boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams, memory_map},
+    mem::memory_map::MemoryMap,
     prelude::*,
-    proto::console::gop::{GraphicsOutput, PixelFormat},
+    proto::console::gop::GraphicsOutput,
 };
+
+#[global_allocator]
+static ALLOCATOR: SomethingAllocator = SomethingAllocator::new();
 
 #[entry]
 fn main() -> Status {
@@ -34,38 +42,47 @@ fn main() -> Status {
 
     set_graphics_mode(gop);
 
-    something::uefi_graphics::clear_background(gop, [20, 255, 50]);
-    something::uefi_graphics::draw_rec(gop, (20, 20), (30, 30), [255, 255, 255]);
-    something::uefi_graphics::draw_line(gop, (20, 20), (30, 30), [255, 255, 255]);
-    something::uefi_graphics::draw_circle(gop, 40, (20, 20), [255, 255, 255]);
-    something::uefi_graphics::draw_text(gop, "something something", (100, 100), [255, 255, 255], 1);
+    let fb = Framebuffer::new(gop);
 
-    let mode_info = gop.current_mode_info();
-    let (width, height) = mode_info.resolution();
-    let stride = mode_info.stride();
-    let is_bgr = matches!(mode_info.pixel_format(), PixelFormat::Bgr);
-    let ptr = gop.frame_buffer().as_mut_ptr();
-    let fb = Framebuffer {
-        ptr,
-        width,
-        height,
-        stride,
-        is_bgr,
-    };
-
-    uefi::println!("Framebuffer: {:?}", fb);
     uefi::println!("Exiting boot services in 3 seconds...");
 
     let dr = Duration::from_millis(3000);
     boot::stall(dr);
 
-    let _memory_map = unsafe { boot::exit_boot_services(Some(MemoryType::LOADER_DATA)) };
+    let memory_map = unsafe { boot::exit_boot_services(Some(MemoryType::LOADER_DATA)) };
+
+    let mut heap_start = 0usize;
+    let mut heap_size = 0usize;
+
+    for descriptor in memory_map.entries() {
+        // Free usable memory
+        if descriptor.ty == MemoryType::CONVENTIONAL {
+            let size = descriptor.page_count as usize * 4096;
+
+            if size > heap_size {
+                heap_start = descriptor.phys_start as usize;
+                heap_size = size;
+            }
+        }
+    }
+
+    // Giving the allocator the pointer to heap
+    ALLOCATOR.init(heap_start, heap_size);
+
+    let s = format!(
+        "heap_start: {} \n heap_end: {} \n heap_size: {}mb",
+        heap_start,
+        heap_start + heap_size,
+        heap_size / (1024 * 1024)
+    );
+
+    let msg = stress_test();
 
     something::graphics::clear_background(&fb, [255, 255, 255]);
-    something::graphics::draw_rec(&fb, (20, 20), (30, 30), [0, 0, 0]);
-    something::graphics::draw_line(&fb, (20, 20), (30, 30), [0, 0, 0]);
-    something::graphics::draw_circle(&fb, 40, (20, 20), [0, 0, 0]);
-    something::graphics::draw_text(&fb, "something something", (100, 100), [0, 0, 0], 1);
+
+    something::graphics::draw_text(&fb, &msg, (100, 300), [0, 0, 0], 1);
+    something::graphics::draw_text(&fb, &s, (100, 100), [0, 0, 0], 1);
+    something::graphics::draw_text(&fb, "survived 10000 allocs!", (100, 200), [0, 0, 0], 1);
 
     loop {}
 }
@@ -80,4 +97,35 @@ fn set_graphics_mode(gop: &mut GraphicsOutput) {
         .unwrap();
 
     gop.set_mode(&mode).expect("Failed to set graphics mode");
+}
+
+/// Allocates 10000 vectors to stress test our allocator implementation
+fn stress_test() -> String {
+    // Stress testing
+    let addr1;
+    let addr2;
+
+    {
+        let v: alloc::vec::Vec<u8> = alloc::vec![1, 2, 3];
+        addr1 = v.as_ptr() as usize;
+    }
+
+    {
+        let v2: alloc::vec::Vec<u8> = alloc::vec![4, 5, 6];
+        addr2 = v2.as_ptr() as usize;
+    }
+
+    for _ in 0..10000 {
+        let _: alloc::vec::Vec<u8> = alloc::vec![0u8; 1024];
+    }
+
+    // if dealloc works, addr1 and addr2 should be the same (or very close)
+    let msg = format!(
+        "addr1: {:#x} addr2: {:#x} same: {}",
+        addr1,
+        addr2,
+        addr1 == addr2
+    );
+
+    return msg;
 }
