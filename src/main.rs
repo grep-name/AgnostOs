@@ -20,10 +20,10 @@ static ALLOCATOR: SomethingAllocator = SomethingAllocator::new();
 #[entry]
 fn main() -> Status {
     uefi::helpers::init().unwrap();
-    uefi::println!("Hello From RUST");
-
+    uefi::println!("Initialized UEFI environment and essential features.");
+    
     let gop_handle = boot::get_handle_for_protocol::<GraphicsOutput>()
-        .expect("missing graphics output protocol");
+    .expect("missing graphics output protocol");
 
     let gop = unsafe {
         &mut boot::open_protocol::<GraphicsOutput>(
