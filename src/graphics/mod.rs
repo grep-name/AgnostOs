@@ -48,6 +48,12 @@ pub const FONT_WIDTH: usize = 8;
 pub const FONT_HEIGHT: usize = 8;
 
 /// Clears the background with the given color
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::clear_background(&fb, [255, 255, 255]);
+/// ```
 pub fn clear_background(fb: &Framebuffer, color: [u8; 3]) {
     for row in 0..fb.height {
         for col in 0..fb.width {

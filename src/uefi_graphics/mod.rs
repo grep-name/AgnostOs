@@ -14,6 +14,12 @@ unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3])
 }
 
 /// Clears the background with the given color
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::clear_background(&fb, [255, 255, 255]);
+/// ```
 pub fn clear_background(gop: &mut GraphicsOutput, color: [u8; 3]) {
     let (width, height) = gop.current_mode_info().resolution();
     let op = BltOp::VideoFill {
