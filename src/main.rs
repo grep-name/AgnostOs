@@ -2,7 +2,6 @@
 #![no_std]
 
 use core::time::Duration;
-
 use something::graphics::Framebuffer;
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
@@ -14,9 +13,9 @@ use uefi::{
 fn main() -> Status {
     uefi::helpers::init().unwrap();
     uefi::println!("Hello From RUST");
-
+    
     let gop_handle = boot::get_handle_for_protocol::<GraphicsOutput>()
-        .expect("missing graphics output protocol");
+    .expect("missing graphics output protocol");
 
     let gop = unsafe {
         &mut boot::open_protocol::<GraphicsOutput>(
@@ -46,7 +45,6 @@ fn main() -> Status {
     let stride = mode_info.stride();
     let is_bgr = matches!(mode_info.pixel_format(), PixelFormat::Bgr);
     let ptr = gop.frame_buffer().as_mut_ptr();
-
     let fb = Framebuffer {
         ptr,
         width,
@@ -64,7 +62,6 @@ fn main() -> Status {
     let _memory_map = unsafe { boot::exit_boot_services(Some(MemoryType::LOADER_DATA)) };
 
     something::graphics::clear_background(&fb, [255, 255, 255]);
-
     something::graphics::draw_rec(&fb, (20, 20), (30, 30), [0, 0, 0]);
     something::graphics::draw_line(&fb, (20, 20), (30, 30), [0, 0, 0]);
     something::graphics::draw_circle(&fb, 40, (20, 20), [0, 0, 0]);
