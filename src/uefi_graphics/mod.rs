@@ -13,6 +13,26 @@ unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3])
     unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
 }
 
+/// Clears the background with the given color
+pub fn clear_background(gop: &mut GraphicsOutput, color: [u8; 3]) {
+    let (width, height) = gop.current_mode_info().resolution();
+    let op = BltOp::VideoFill {
+        color: BltPixel::new(color[0], color[1], color[2]),
+        dest: (0, 0),
+        dims: (width, height),
+    };
+
+    gop.blt(op).expect("Failed to fill screen with color");
+}
+
+/// Renders a rectangle on the screen, at the provided coordinates with the provided color and
+/// dimensions.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_rec(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// ```
 pub fn draw_rec(
     gop: &mut GraphicsOutput,
     (x, y): (usize, usize),
@@ -47,17 +67,58 @@ pub fn draw_rec(
     }
 }
 
-pub fn clear_background(gop: &mut GraphicsOutput, color: [u8; 3]) {
-    let (width, height) = gop.current_mode_info().resolution();
-    let op = BltOp::VideoFill {
-        color: BltPixel::new(color[0], color[1], color[2]),
-        dest: (0, 0),
-        dims: (width, height),
+/// Renders a circle on the screen, at the provided coordinates with the provided color and radius.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_circle(&fb, 20, (100, 100), [0, 0, 0]);
+/// ```
+pub fn draw_circle(
+    gop: &mut GraphicsOutput,
+    radius: usize,
+    (cx, cy): (usize, usize),
+    color: [u8; 3],
+) {
+    let mi = gop.current_mode_info();
+    let stride = mi.stride();
+    let mut fb = gop.frame_buffer();
+
+    let write_pixel: PixelWriter = match mi.pixel_format() {
+        PixelFormat::Rgb => write_pixel_rgb,
+        PixelFormat::Bgr => write_pixel_bgr,
+        _ => return,
     };
 
-    gop.blt(op).expect("Failed to fill screen with color");
+    let r = radius as isize;
+    let cx = cx as isize;
+    let cy = cy as isize;
+    let r_sq = r * r;
+
+    for dy in -r..=r {
+        for dx in -r..=r {
+            if dx * dx + dy * dy <= r_sq {
+                let px = cx + dx;
+                let py = cy + dy;
+                if px >= 0 && py >= 0 {
+                    unsafe {
+                        let pixel_index = (py as usize * stride) + px as usize;
+                        let pixel_base = 4 * pixel_index;
+                        write_pixel(&mut fb, pixel_base, color);
+                    }
+                }
+            }
+        }
+    }
 }
 
+/// Renders a line on the screen, at the provided coordinates with the provided color.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_line(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// ```
 pub fn draw_line(
     gop: &mut GraphicsOutput,
     (x1, y1): (i64, i64),
@@ -101,44 +162,13 @@ pub fn draw_line(
     }
 }
 
-pub fn draw_circle(
-    gop: &mut GraphicsOutput,
-    radius: usize,
-    (cx, cy): (usize, usize),
-    color: [u8; 3],
-) {
-    let mi = gop.current_mode_info();
-    let stride = mi.stride();
-    let mut fb = gop.frame_buffer();
-
-    let write_pixel: PixelWriter = match mi.pixel_format() {
-        PixelFormat::Rgb => write_pixel_rgb,
-        PixelFormat::Bgr => write_pixel_bgr,
-        _ => return,
-    };
-
-    let r = radius as isize;
-    let cx = cx as isize;
-    let cy = cy as isize;
-    let r_sq = r * r;
-
-    for dy in -r..=r {
-        for dx in -r..=r {
-            if dx * dx + dy * dy <= r_sq {
-                let px = cx + dx;
-                let py = cy + dy;
-                if px >= 0 && py >= 0 {
-                    unsafe {
-                        let pixel_index = (py as usize * stride) + px as usize;
-                        let pixel_base = 4 * pixel_index;
-                        write_pixel(&mut fb, pixel_base, color);
-                    }
-                }
-            }
-        }
-    }
-}
-
+/// Renders the provided text on the screen, at the provided coordinates with the provided color and scale.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0], 1);
+/// ```
 pub fn draw_text(
     gop: &mut GraphicsOutput,
     text: &str,

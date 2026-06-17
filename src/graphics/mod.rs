@@ -47,6 +47,7 @@ impl Framebuffer {
 pub const FONT_WIDTH: usize = 8;
 pub const FONT_HEIGHT: usize = 8;
 
+/// Clears the background with the given color
 pub fn clear_background(fb: &Framebuffer, color: [u8; 3]) {
     for row in 0..fb.height {
         for col in 0..fb.width {
@@ -56,6 +57,14 @@ pub fn clear_background(fb: &Framebuffer, color: [u8; 3]) {
     }
 }
 
+/// Renders a rectangle on the screen, at the provided coordinates with the provided color and
+/// dimensions.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_rec(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// ```
 pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize), color: [u8; 3]) {
     let x2 = x + w;
     let y2 = y + h;
@@ -70,6 +79,13 @@ pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize)
     }
 }
 
+/// Renders a circle on the screen, at the provided coordinates with the provided color and radius.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_circle(&fb, 20, (100, 100), [0, 0, 0]);
+/// ```
 pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), color: [u8; 3]) {
     let r = radius as isize;
     let cx = cx as isize;
@@ -90,6 +106,13 @@ pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), co
     }
 }
 
+/// Renders a line on the screen, at the provided coordinates with the provided color.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_line(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// ```
 pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), color: [u8; 3]) {
     let dx = (x2 - x1).abs();
     let dy = (y2 - y1).abs();
@@ -116,6 +139,13 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
     }
 }
 
+/// Renders the provided text on the screen, at the provided coordinates with the provided color and scale.
+///
+/// **Example**
+///
+/// ```rust
+/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0], 1);
+/// ```
 pub fn draw_text(
     fb: &Framebuffer,
     text: &str,
