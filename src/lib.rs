@@ -14,3 +14,15 @@ pub mod graphics;
 pub mod uefi_graphics;
 
 pub mod kprintln;
+
+/// Represents an RGB color.
+///
+/// Each channel uses an 8-bit value in the range `0..=255`.
+pub struct Color {
+    /// Red component (`0..=255`).
+    pub r: u8,
+    /// Green component (`0..=255`).
+    pub g: u8,
+    /// Blue component (`0..=255`).
+    pub b: u8,
+}

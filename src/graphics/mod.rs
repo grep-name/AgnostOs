@@ -1,7 +1,7 @@
 use noto_sans_mono_bitmap::{RasterizedChar, get_raster};
 use uefi::proto::console::gop::{GraphicsOutput, PixelFormat};
 
-use crate::{FONT_HEIGHT, FONT_WEIGHT};
+use crate::{Color, FONT_HEIGHT, FONT_WEIGHT};
 
 #[derive(Debug, Clone)]
 pub struct Framebuffer {
@@ -32,11 +32,11 @@ impl Framebuffer {
 
 impl Framebuffer {
     #[inline]
-    unsafe fn write_pixel(&self, pixel_index: usize, color: [u8; 3]) {
+    unsafe fn write_pixel(&self, pixel_index: usize, color: &Color) {
         let rgb = if self.is_bgr {
-            [color[2], color[1], color[0]]
+            [color.b, color.g, color.r]
         } else {
-            color
+            [color.r, color.g, color.b]
         };
         let p = unsafe { self.ptr.add(4 * pixel_index) };
         unsafe {
@@ -54,11 +54,11 @@ impl Framebuffer {
 /// ```rust
 /// something::graphics::clear_background(&fb, [255, 255, 255]);
 /// ```
-pub fn clear_background(fb: &Framebuffer, color: [u8; 3]) {
+pub fn clear_background(fb: &Framebuffer, color: Color) {
     for row in 0..fb.height {
         for col in 0..fb.width {
             let pixel_index = row * fb.stride + col;
-            unsafe { fb.write_pixel(pixel_index, color) };
+            unsafe { fb.write_pixel(pixel_index, &color) };
         }
     }
 }
@@ -71,7 +71,7 @@ pub fn clear_background(fb: &Framebuffer, color: [u8; 3]) {
 /// ```rust
 /// something::graphics::draw_rec(&fb, (100, 100), (100, 100), [0, 0, 0]);
 /// ```
-pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize), color: [u8; 3]) {
+pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize), color: Color) {
     let x2 = x + w;
     let y2 = y + h;
     assert!(x2 <= fb.width, "Bad X coordinate");
@@ -80,7 +80,7 @@ pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize)
     for row in y..y2 {
         for col in x..x2 {
             let pixel_index = row * fb.stride + col;
-            unsafe { fb.write_pixel(pixel_index, color) };
+            unsafe { fb.write_pixel(pixel_index, &color) };
         }
     }
 }
@@ -92,7 +92,7 @@ pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize)
 /// ```rust
 /// something::graphics::draw_circle(&fb, 20, (100, 100), [0, 0, 0]);
 /// ```
-pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), color: [u8; 3]) {
+pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), color: Color) {
     let r = radius as isize;
     let cx = cx as isize;
     let cy = cy as isize;
@@ -105,7 +105,7 @@ pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), co
                 let py = cy + dy;
                 if px >= 0 && py >= 0 {
                     let pixel_index = (py as usize) * fb.stride + (px as usize);
-                    unsafe { fb.write_pixel(pixel_index, color) };
+                    unsafe { fb.write_pixel(pixel_index, &color) };
                 }
             }
         }
@@ -119,7 +119,7 @@ pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), co
 /// ```rust
 /// something::graphics::draw_line(&fb, (100, 100), (100, 100), [0, 0, 0]);
 /// ```
-pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), color: [u8; 3]) {
+pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), color: Color) {
     let dx = (x2 - x1).abs();
     let dy = (y2 - y1).abs();
     let sx = if x2 >= x1 { 1 } else { -1 };
@@ -129,7 +129,7 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
     let (mut x, mut y) = (x1, y1);
     loop {
         let pixel_index = (y as usize) * fb.stride + (x as usize);
-        unsafe { fb.write_pixel(pixel_index, color) };
+        unsafe { fb.write_pixel(pixel_index, &color) };
         if x == x2 && y == y2 {
             break;
         }
@@ -152,7 +152,7 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
 /// ```rust
 /// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0]);
 /// ```
-pub fn draw_text(fb: &Framebuffer, text: &str, (x, y): (usize, usize), color: [u8; 3]) {
+pub fn draw_text(fb: &Framebuffer, text: &str, (x, y): (usize, usize), color: Color) {
     let mut cursor_x = x;
 
     for ch in text.chars() {
@@ -168,12 +168,12 @@ pub fn draw_text(fb: &Framebuffer, text: &str, (x, y): (usize, usize), color: [u
             },
         };
 
-        draw_glyph(fb, &char_raster, cursor_x, y, color);
+        draw_glyph(fb, &char_raster, cursor_x, y, &color);
         cursor_x += char_raster.width();
     }
 }
 
-fn draw_glyph(fb: &Framebuffer, raster: &RasterizedChar, x: usize, y: usize, color: [u8; 3]) {
+fn draw_glyph(fb: &Framebuffer, raster: &RasterizedChar, x: usize, y: usize, color: &Color) {
     for (row, row_data) in raster.raster().iter().enumerate() {
         for (col, &intensity) in row_data.iter().enumerate() {
             if intensity == 0 {
@@ -188,12 +188,12 @@ fn draw_glyph(fb: &Framebuffer, raster: &RasterizedChar, x: usize, y: usize, col
             }
 
             // blend intensity with color
-            let r = (color[0] as u32 * intensity as u32 / 255) as u8;
-            let g = (color[1] as u32 * intensity as u32 / 255) as u8;
-            let b = (color[2] as u32 * intensity as u32 / 255) as u8;
+            let r = (color.r as u32 * intensity as u32 / 255) as u8;
+            let g = (color.g as u32 * intensity as u32 / 255) as u8;
+            let b = (color.b as u32 * intensity as u32 / 255) as u8;
 
             let pixel_index = py * fb.stride + px;
-            unsafe { fb.write_pixel(pixel_index, [r, g, b]) };
+            unsafe { fb.write_pixel(pixel_index, &Color { r, g, b }) };
         }
     }
 }

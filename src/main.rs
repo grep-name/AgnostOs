@@ -6,7 +6,7 @@ use core::time::Duration;
 extern crate alloc;
 
 use alloc::{format, string::String};
-use something::{allocator::SomethingAllocator, graphics::Framebuffer, kprintln};
+use something::{Color, allocator::SomethingAllocator, graphics::Framebuffer, kprintln};
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
     mem::memory_map::MemoryMap,
@@ -79,7 +79,7 @@ fn main() -> Status {
 
     let msg = stress_test();
 
-    something::graphics::clear_background(&fb, [0, 0, 0]);
+    something::graphics::clear_background(&fb, Color { r: 0, g: 0, b: 0 });
 
     kprintln!("{}", &msg);
     kprintln!("{}", &s);
@@ -88,7 +88,16 @@ fn main() -> Status {
 
     kprintln!("comparing both the versions of rendering text");
 
-    something::graphics::draw_text(&fb, "survived 10000 allocs!", (100, 200), [255, 255, 255]);
+    something::graphics::draw_text(
+        &fb,
+        "survived 10000 allocs!",
+        (100, 200),
+        Color {
+            r: 255,
+            g: 255,
+            b: 255,
+        },
+    );
     kprintln!("survived 10000 allocs!");
 
     loop {}

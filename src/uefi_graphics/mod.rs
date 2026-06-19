@@ -1,14 +1,14 @@
-use crate::{FONT_HEIGHT, FONT_WEIGHT};
+use crate::{Color, FONT_HEIGHT, FONT_WEIGHT};
 use noto_sans_mono_bitmap::get_raster;
 use uefi::proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat};
 
-type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
+type PixelWriter = unsafe fn(&mut FrameBuffer, usize, &Color);
 
-unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-    unsafe { fb.write_value(pixel_base, rgb) }
+unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, color: &Color) {
+    unsafe { fb.write_value(pixel_base, [color.r, color.g, color.b]) }
 }
-unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-    unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
+unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, color: &Color) {
+    unsafe { fb.write_value(pixel_base, [color.b, color.g, color.r]) }
 }
 
 /// Clears the background with the given color
@@ -18,10 +18,10 @@ unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3])
 /// ```rust
 /// something::graphics::clear_background(&fb, [255, 255, 255]);
 /// ```
-pub fn clear_background(gop: &mut GraphicsOutput, color: [u8; 3]) {
+pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
     let (width, height) = gop.current_mode_info().resolution();
     let op = BltOp::VideoFill {
-        color: BltPixel::new(color[0], color[1], color[2]),
+        color: BltPixel::new(color.r, color.g, color.b),
         dest: (0, 0),
         dims: (width, height),
     };
@@ -41,7 +41,7 @@ pub fn draw_rec(
     gop: &mut GraphicsOutput,
     (x, y): (usize, usize),
     (w, h): (usize, usize),
-    color: [u8; 3],
+    color: Color,
 ) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
@@ -65,7 +65,7 @@ pub fn draw_rec(
             unsafe {
                 let pixel_index = (row * stride) + column;
                 let pixel_base = 4 * pixel_index;
-                write_pixel(&mut fb, pixel_base, color);
+                write_pixel(&mut fb, pixel_base, &color);
             }
         }
     }
@@ -82,7 +82,7 @@ pub fn draw_circle(
     gop: &mut GraphicsOutput,
     radius: usize,
     (cx, cy): (usize, usize),
-    color: [u8; 3],
+    color: Color,
 ) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
@@ -108,7 +108,7 @@ pub fn draw_circle(
                     unsafe {
                         let pixel_index = (py as usize * stride) + px as usize;
                         let pixel_base = 4 * pixel_index;
-                        write_pixel(&mut fb, pixel_base, color);
+                        write_pixel(&mut fb, pixel_base, &color);
                     }
                 }
             }
@@ -127,15 +127,15 @@ pub fn draw_line(
     gop: &mut GraphicsOutput,
     (x1, y1): (i64, i64),
     (x2, y2): (i64, i64),
-    color: [u8; 3],
+    color: Color,
 ) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
     let mut fb = gop.frame_buffer();
 
     let pixel = match mi.pixel_format() {
-        PixelFormat::Rgb => color,
-        PixelFormat::Bgr => [color[2], color[1], color[0]],
+        PixelFormat::Rgb => [color.r, color.g, color.b],
+        PixelFormat::Bgr => [color.g, color.g, color.r],
         _ => return,
     };
 
@@ -173,7 +173,7 @@ pub fn draw_line(
 /// ```rust
 /// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0]);
 /// ```
-pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), color: [u8; 3]) {
+pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), color: Color) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
     let (width, height) = mi.resolution();
@@ -209,13 +209,13 @@ pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), c
                     continue;
                 }
 
-                let r = (color[0] as u32 * intensity as u32 / 255) as u8;
-                let g = (color[1] as u32 * intensity as u32 / 255) as u8;
-                let b = (color[2] as u32 * intensity as u32 / 255) as u8;
+                let r = (color.r as u32 * intensity as u32 / 255) as u8;
+                let g = (color.g as u32 * intensity as u32 / 255) as u8;
+                let b = (color.b as u32 * intensity as u32 / 255) as u8;
 
                 unsafe {
                     let pixel_index = py * stride + px;
-                    write_pixel(&mut fb, 4 * pixel_index, [r, g, b]);
+                    write_pixel(&mut fb, 4 * pixel_index, &Color { r, g, b });
                 }
             }
         }

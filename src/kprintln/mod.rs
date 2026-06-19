@@ -3,7 +3,7 @@ use noto_sans_mono_bitmap::get_raster_width;
 use spin::Mutex;
 
 use crate::{
-    FONT_HEIGHT, FONT_WEIGHT,
+    Color, FONT_HEIGHT, FONT_WEIGHT,
     graphics::{self, Framebuffer},
 };
 
@@ -41,7 +41,11 @@ impl fmt::Write for KWriter {
 
             if self.y + FONT_H >= height {
                 self.y = 0;
-                graphics::clear_background(&self.fb, [0, 0, 0]);
+                graphics::clear_background(
+                    &self.fb,
+                    Color {
+                        r: 0,g: 0,b: 0,},
+                );
             }
 
             if self.x + FONT_W >= width {
@@ -51,7 +55,16 @@ impl fmt::Write for KWriter {
 
             let mut buf = [0u8; 4];
             let s = ch.encode_utf8(&mut buf);
-            graphics::draw_text(&self.fb, s, (self.x, self.y), [255, 255, 255]);
+            graphics::draw_text(
+                &self.fb,
+                s,
+                (self.x, self.y),
+                Color {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                },
+            );
             self.x += FONT_W;
         }
 
