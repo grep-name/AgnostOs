@@ -1,6 +1,9 @@
+use noto_sans_mono_bitmap::{RasterizedChar, get_raster};
 use uefi::proto::console::gop::{GraphicsOutput, PixelFormat};
 
-#[derive(Debug)]
+use crate::{FONT_HEIGHT, FONT_WEIGHT};
+
+#[derive(Debug, Clone)]
 pub struct Framebuffer {
     pub ptr: *mut u8,
     pub width: usize,
@@ -43,9 +46,6 @@ impl Framebuffer {
         }
     }
 }
-
-pub const FONT_WIDTH: usize = 8;
-pub const FONT_HEIGHT: usize = 8;
 
 /// Clears the background with the given color
 ///
@@ -150,45 +150,50 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0], 1);
+/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0]);
 /// ```
-pub fn draw_text(
-    fb: &Framebuffer,
-    text: &str,
-    (x, y): (usize, usize),
-    color: [u8; 3],
-    scale: usize,
-) {
+pub fn draw_text(fb: &Framebuffer, text: &str, (x, y): (usize, usize), color: [u8; 3]) {
     let mut cursor_x = x;
-    let cursor_y = y;
 
     for ch in text.chars() {
-        let glyph = get_glyph(ch);
-
-        for (row, byte) in glyph.iter().enumerate() {
-            for col in 0..8 {
-                if byte & (1 << col) != 0 {
-                    for sy in 0..scale {
-                        for sx in 0..scale {
-                            let px = cursor_x + col * scale + sx;
-                            let py = cursor_y + row * scale + sy;
-                            let pixel_index = py * fb.stride + px;
-                            unsafe { fb.write_pixel(pixel_index, color) };
-                        }
-                    }
-                }
-            }
+        if ch == '\n' {
+            break;
         }
-        cursor_x += FONT_WIDTH * scale + scale;
+
+        let char_raster = match get_raster(ch, FONT_WEIGHT, FONT_HEIGHT) {
+            Some(r) => r,
+            None => match get_raster('?', FONT_WEIGHT, FONT_HEIGHT) {
+                Some(r) => r,
+                None => continue,
+            },
+        };
+
+        draw_glyph(fb, &char_raster, cursor_x, y, color);
+        cursor_x += char_raster.width();
     }
 }
 
-fn get_glyph(ch: char) -> [u8; 8] {
-    use font8x8::legacy::BASIC_LEGACY;
-    let idx = ch as usize;
-    if idx < 128 {
-        BASIC_LEGACY[idx]
-    } else {
-        BASIC_LEGACY[0]
+fn draw_glyph(fb: &Framebuffer, raster: &RasterizedChar, x: usize, y: usize, color: [u8; 3]) {
+    for (row, row_data) in raster.raster().iter().enumerate() {
+        for (col, &intensity) in row_data.iter().enumerate() {
+            if intensity == 0 {
+                continue; // fully transparent, skip
+            }
+
+            let px = x + col;
+            let py = y + row;
+
+            if px >= fb.width || py >= fb.height {
+                continue;
+            }
+
+            // blend intensity with color
+            let r = (color[0] as u32 * intensity as u32 / 255) as u8;
+            let g = (color[1] as u32 * intensity as u32 / 255) as u8;
+            let b = (color[2] as u32 * intensity as u32 / 255) as u8;
+
+            let pixel_index = py * fb.stride + px;
+            unsafe { fb.write_pixel(pixel_index, [r, g, b]) };
+        }
     }
 }

@@ -1,8 +1,6 @@
-use font8x8::legacy::BASIC_LEGACY;
+use crate::{FONT_HEIGHT, FONT_WEIGHT};
+use noto_sans_mono_bitmap::get_raster;
 use uefi::proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat};
-
-pub const FONT_WIDTH: usize = 8;
-pub const FONT_HEIGHT: usize = 8;
 
 type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
 
@@ -173,17 +171,12 @@ pub fn draw_line(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0], 1);
+/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0]);
 /// ```
-pub fn draw_text(
-    gop: &mut GraphicsOutput,
-    text: &str,
-    (x, y): (usize, usize),
-    color: [u8; 3],
-    scale: usize,
-) {
+pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), color: [u8; 3]) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
+    let (width, height) = mi.resolution();
     let mut fb = gop.frame_buffer();
 
     let write_pixel: PixelWriter = match mi.pixel_format() {
@@ -193,37 +186,40 @@ pub fn draw_text(
     };
 
     let mut cursor_x = x;
-    let cursor_y = y;
 
     for ch in text.chars() {
-        let glyph = get_glyph(ch);
+        let char_raster = match get_raster(ch, FONT_WEIGHT, FONT_HEIGHT) {
+            Some(r) => r,
+            None => match get_raster('?', FONT_WEIGHT, FONT_HEIGHT) {
+                Some(r) => r,
+                None => continue,
+            },
+        };
 
-        for (row, byte) in glyph.iter().enumerate() {
-            for col in 0..8 {
-                if byte & (1 << col) != 0 {
-                    // draw a scale x scale block for this bit
-                    for sy in 0..scale {
-                        for sx in 0..scale {
-                            let px = cursor_x + col * scale + sx;
-                            let py = cursor_y + row * scale + sy;
-                            unsafe {
-                                let pixel_index = (py * stride) + px;
-                                write_pixel(&mut fb, 4 * pixel_index, color);
-                            }
-                        }
-                    }
+        for (row, row_data) in char_raster.raster().iter().enumerate() {
+            for (col, &intensity) in row_data.iter().enumerate() {
+                if intensity == 0 {
+                    continue;
+                }
+
+                let px = cursor_x + col;
+                let py = y + row;
+
+                if px >= width || py >= height {
+                    continue;
+                }
+
+                let r = (color[0] as u32 * intensity as u32 / 255) as u8;
+                let g = (color[1] as u32 * intensity as u32 / 255) as u8;
+                let b = (color[2] as u32 * intensity as u32 / 255) as u8;
+
+                unsafe {
+                    let pixel_index = py * stride + px;
+                    write_pixel(&mut fb, 4 * pixel_index, [r, g, b]);
                 }
             }
         }
-        cursor_x += FONT_WIDTH * scale + scale; // advance + 1px spacing
-    }
-}
 
-fn get_glyph(ch: char) -> [u8; 8] {
-    let idx = ch as usize;
-    if idx < 128 {
-        BASIC_LEGACY[idx]
-    } else {
-        BASIC_LEGACY[0]
+        cursor_x += char_raster.width();
     }
 }
