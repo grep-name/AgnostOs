@@ -1,4 +1,4 @@
-use crate::{Color, FONT_HEIGHT, FONT_WEIGHT};
+use crate::{FONT_HEIGHT, FONT_WEIGHT, color::Color};
 use noto_sans_mono_bitmap::get_raster;
 use uefi::proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat};
 
@@ -226,7 +226,7 @@ pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), c
 
                 unsafe {
                     let pixel_index = py * stride + px;
-                    write_pixel(&mut fb, 4 * pixel_index, &Color { r, g, b });
+                    write_pixel(&mut fb, 4 * pixel_index, &Color::new(r, g, b));
                 }
             }
         }

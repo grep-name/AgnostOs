@@ -1,7 +1,7 @@
 use noto_sans_mono_bitmap::{RasterizedChar, get_raster};
 use uefi::proto::console::gop::{GraphicsOutput, PixelFormat};
 
-use crate::{Color, FONT_HEIGHT, FONT_WEIGHT};
+use crate::{FONT_HEIGHT, FONT_WEIGHT, color::Color};
 
 #[derive(Debug, Clone)]
 pub struct Framebuffer {
@@ -203,7 +203,7 @@ fn draw_glyph(fb: &Framebuffer, raster: &RasterizedChar, x: usize, y: usize, col
             let b = (color.b as u32 * intensity as u32 / 255) as u8;
 
             let pixel_index = py * fb.stride + px;
-            unsafe { fb.write_pixel(pixel_index, &Color { r, g, b }) };
+            unsafe { fb.write_pixel(pixel_index, &Color::new(r, g, b)) };
         }
     }
 }
