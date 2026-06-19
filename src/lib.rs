@@ -13,6 +13,7 @@ pub mod graphics;
 /// Module that contains the code for rendering things to the screen when in uefi. It usses gop.
 pub mod uefi_graphics;
 
+/// Module that contains the code for printing text to the screen same way println! does
 pub mod kprintln;
 
 /// Represents an RGB color.

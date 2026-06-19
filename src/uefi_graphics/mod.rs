@@ -7,6 +7,7 @@ type PixelWriter = unsafe fn(&mut FrameBuffer, usize, &Color);
 unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, color: &Color) {
     unsafe { fb.write_value(pixel_base, [color.r, color.g, color.b]) }
 }
+
 unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, color: &Color) {
     unsafe { fb.write_value(pixel_base, [color.b, color.g, color.r]) }
 }
@@ -16,7 +17,9 @@ unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, color: &Color
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::clear_background(&fb, [255, 255, 255]);
+/// use something::Color;
+///
+/// something::uefi_graphics::clear_background(gop, Color: { r: 255, g: 255, b: 255 });
 /// ```
 pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
     let (width, height) = gop.current_mode_info().resolution();
@@ -35,7 +38,9 @@ pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_rec(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_rec(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_rec(
     gop: &mut GraphicsOutput,
@@ -76,7 +81,9 @@ pub fn draw_rec(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_circle(&fb, 20, (100, 100), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_circle(gop, 20, (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_circle(
     gop: &mut GraphicsOutput,
@@ -121,7 +128,9 @@ pub fn draw_circle(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_line(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_line(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_line(
     gop: &mut GraphicsOutput,
@@ -171,7 +180,9 @@ pub fn draw_line(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_text(gop, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), color: Color) {
     let mi = gop.current_mode_info();
