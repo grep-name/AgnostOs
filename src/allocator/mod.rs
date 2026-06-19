@@ -10,6 +10,7 @@ pub struct SomethingAllocator {
     head: spin::Mutex<*mut FreeChunk>,
 }
 
+// Since we are only one core they are here just so rust compiler would shut up and dont do anything.
 unsafe impl Send for SomethingAllocator {}
 unsafe impl Sync for SomethingAllocator {}
 
