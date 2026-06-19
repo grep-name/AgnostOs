@@ -6,9 +6,9 @@ use core::time::Duration;
 extern crate alloc;
 
 use alloc::{format, string::String};
-use something::{allocator::SomethingAllocator, graphics::Framebuffer};
+use something::{Color, allocator::SomethingAllocator, graphics::Framebuffer, kprintln};
 use uefi::{
-    boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams, memory_map},
+    boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
     mem::memory_map::MemoryMap,
     prelude::*,
     proto::console::gop::GraphicsOutput,
@@ -21,9 +21,9 @@ static ALLOCATOR: SomethingAllocator = SomethingAllocator::new();
 fn main() -> Status {
     uefi::helpers::init().unwrap();
     uefi::println!("Initialized UEFI environment and essential features.");
-    
+
     let gop_handle = boot::get_handle_for_protocol::<GraphicsOutput>()
-    .expect("missing graphics output protocol");
+        .expect("missing graphics output protocol");
 
     let gop = unsafe {
         &mut boot::open_protocol::<GraphicsOutput>(
@@ -43,6 +43,7 @@ fn main() -> Status {
     set_graphics_mode(gop);
 
     let fb = Framebuffer::new(gop);
+    something::kprintln::init(&fb);
 
     uefi::println!("Exiting boot services in 3 seconds...");
 
@@ -78,11 +79,26 @@ fn main() -> Status {
 
     let msg = stress_test();
 
-    something::graphics::clear_background(&fb, [255, 255, 255]);
+    something::graphics::clear_background(&fb, Color { r: 0, g: 0, b: 0 });
 
-    something::graphics::draw_text(&fb, &msg, (100, 300), [0, 0, 0], 1);
-    something::graphics::draw_text(&fb, &s, (100, 100), [0, 0, 0], 1);
-    something::graphics::draw_text(&fb, "survived 10000 allocs!", (100, 200), [0, 0, 0], 1);
+    kprintln!("{}", &msg);
+    kprintln!("{}", &s);
+
+    kprintln!("------------------------------------------");
+
+    kprintln!("comparing both the versions of rendering text");
+
+    something::graphics::draw_text(
+        &fb,
+        "survived 10000 allocs!",
+        (100, 200),
+        Color {
+            r: 255,
+            g: 255,
+            b: 255,
+        },
+    );
+    kprintln!("survived 10000 allocs!");
 
     loop {}
 }

@@ -1,16 +1,15 @@
-use font8x8::legacy::BASIC_LEGACY;
+use crate::{Color, FONT_HEIGHT, FONT_WEIGHT};
+use noto_sans_mono_bitmap::get_raster;
 use uefi::proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat};
 
-pub const FONT_WIDTH: usize = 8;
-pub const FONT_HEIGHT: usize = 8;
+type PixelWriter = unsafe fn(&mut FrameBuffer, usize, &Color);
 
-type PixelWriter = unsafe fn(&mut FrameBuffer, usize, [u8; 3]);
-
-unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-    unsafe { fb.write_value(pixel_base, rgb) }
+unsafe fn write_pixel_rgb(fb: &mut FrameBuffer, pixel_base: usize, color: &Color) {
+    unsafe { fb.write_value(pixel_base, [color.r, color.g, color.b]) }
 }
-unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3]) {
-    unsafe { fb.write_value(pixel_base, [rgb[2], rgb[1], rgb[0]]) }
+
+unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, color: &Color) {
+    unsafe { fb.write_value(pixel_base, [color.b, color.g, color.r]) }
 }
 
 /// Clears the background with the given color
@@ -18,12 +17,14 @@ unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, rgb: [u8; 3])
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::clear_background(&fb, [255, 255, 255]);
+/// use something::Color;
+///
+/// something::uefi_graphics::clear_background(gop, Color: { r: 255, g: 255, b: 255 });
 /// ```
-pub fn clear_background(gop: &mut GraphicsOutput, color: [u8; 3]) {
+pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
     let (width, height) = gop.current_mode_info().resolution();
     let op = BltOp::VideoFill {
-        color: BltPixel::new(color[0], color[1], color[2]),
+        color: BltPixel::new(color.r, color.g, color.b),
         dest: (0, 0),
         dims: (width, height),
     };
@@ -37,13 +38,15 @@ pub fn clear_background(gop: &mut GraphicsOutput, color: [u8; 3]) {
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_rec(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_rec(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_rec(
     gop: &mut GraphicsOutput,
     (x, y): (usize, usize),
     (w, h): (usize, usize),
-    color: [u8; 3],
+    color: Color,
 ) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
@@ -67,7 +70,7 @@ pub fn draw_rec(
             unsafe {
                 let pixel_index = (row * stride) + column;
                 let pixel_base = 4 * pixel_index;
-                write_pixel(&mut fb, pixel_base, color);
+                write_pixel(&mut fb, pixel_base, &color);
             }
         }
     }
@@ -78,13 +81,15 @@ pub fn draw_rec(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_circle(&fb, 20, (100, 100), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_circle(gop, 20, (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_circle(
     gop: &mut GraphicsOutput,
     radius: usize,
     (cx, cy): (usize, usize),
-    color: [u8; 3],
+    color: Color,
 ) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
@@ -110,7 +115,7 @@ pub fn draw_circle(
                     unsafe {
                         let pixel_index = (py as usize * stride) + px as usize;
                         let pixel_base = 4 * pixel_index;
-                        write_pixel(&mut fb, pixel_base, color);
+                        write_pixel(&mut fb, pixel_base, &color);
                     }
                 }
             }
@@ -123,21 +128,23 @@ pub fn draw_circle(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_line(&fb, (100, 100), (100, 100), [0, 0, 0]);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_line(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_line(
     gop: &mut GraphicsOutput,
     (x1, y1): (i64, i64),
     (x2, y2): (i64, i64),
-    color: [u8; 3],
+    color: Color,
 ) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
     let mut fb = gop.frame_buffer();
 
     let pixel = match mi.pixel_format() {
-        PixelFormat::Rgb => color,
-        PixelFormat::Bgr => [color[2], color[1], color[0]],
+        PixelFormat::Rgb => [color.r, color.g, color.b],
+        PixelFormat::Bgr => [color.g, color.g, color.r],
         _ => return,
     };
 
@@ -173,17 +180,14 @@ pub fn draw_line(
 /// **Example**
 ///
 /// ```rust
-/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), [0, 0, 0], 1);
+/// use something::Color;
+///
+/// something::uefi_graphics::draw_text(gop, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
 /// ```
-pub fn draw_text(
-    gop: &mut GraphicsOutput,
-    text: &str,
-    (x, y): (usize, usize),
-    color: [u8; 3],
-    scale: usize,
-) {
+pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), color: Color) {
     let mi = gop.current_mode_info();
     let stride = mi.stride();
+    let (width, height) = mi.resolution();
     let mut fb = gop.frame_buffer();
 
     let write_pixel: PixelWriter = match mi.pixel_format() {
@@ -193,37 +197,40 @@ pub fn draw_text(
     };
 
     let mut cursor_x = x;
-    let cursor_y = y;
 
     for ch in text.chars() {
-        let glyph = get_glyph(ch);
+        let char_raster = match get_raster(ch, FONT_WEIGHT, FONT_HEIGHT) {
+            Some(r) => r,
+            None => match get_raster('?', FONT_WEIGHT, FONT_HEIGHT) {
+                Some(r) => r,
+                None => continue,
+            },
+        };
 
-        for (row, byte) in glyph.iter().enumerate() {
-            for col in 0..8 {
-                if byte & (1 << col) != 0 {
-                    // draw a scale x scale block for this bit
-                    for sy in 0..scale {
-                        for sx in 0..scale {
-                            let px = cursor_x + col * scale + sx;
-                            let py = cursor_y + row * scale + sy;
-                            unsafe {
-                                let pixel_index = (py * stride) + px;
-                                write_pixel(&mut fb, 4 * pixel_index, color);
-                            }
-                        }
-                    }
+        for (row, row_data) in char_raster.raster().iter().enumerate() {
+            for (col, &intensity) in row_data.iter().enumerate() {
+                if intensity == 0 {
+                    continue;
+                }
+
+                let px = cursor_x + col;
+                let py = y + row;
+
+                if px >= width || py >= height {
+                    continue;
+                }
+
+                let r = (color.r as u32 * intensity as u32 / 255) as u8;
+                let g = (color.g as u32 * intensity as u32 / 255) as u8;
+                let b = (color.b as u32 * intensity as u32 / 255) as u8;
+
+                unsafe {
+                    let pixel_index = py * stride + px;
+                    write_pixel(&mut fb, 4 * pixel_index, &Color { r, g, b });
                 }
             }
         }
-        cursor_x += FONT_WIDTH * scale + scale; // advance + 1px spacing
-    }
-}
 
-fn get_glyph(ch: char) -> [u8; 8] {
-    let idx = ch as usize;
-    if idx < 128 {
-        BASIC_LEGACY[idx]
-    } else {
-        BASIC_LEGACY[0]
+        cursor_x += char_raster.width();
     }
 }
