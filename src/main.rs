@@ -81,11 +81,13 @@ fn main() -> Status {
 
     something::graphics::clear_background(&fb, [0, 0, 0]);
 
-    // something::graphics::draw_text(&fb, &msg, (100, 300), [0, 0, 0], 1);
-    //kprintln!("{}", &msg);
-    //kprintln!("{}", &s);
-    //kprintln!("survived 10000 allocs!");
-    //something::graphics::draw_text(&fb, &s, (100, 100), [255, 255, 255]);
+    kprintln!("{}", &msg);
+    kprintln!("{}", &s);
+
+    kprintln!("------------------------------------------");
+
+    kprintln!("comparing both the versions of rendering text");
+
     something::graphics::draw_text(&fb, "survived 10000 allocs!", (100, 200), [255, 255, 255]);
     kprintln!("survived 10000 allocs!");
 

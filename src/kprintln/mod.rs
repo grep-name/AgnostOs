@@ -1,7 +1,11 @@
 use core::fmt;
+use noto_sans_mono_bitmap::get_raster_width;
 use spin::Mutex;
 
-use crate::graphics::{self, Framebuffer};
+use crate::{
+    FONT_HEIGHT, FONT_WEIGHT,
+    graphics::{self, Framebuffer},
+};
 
 struct KWriter {
     fb: Framebuffer,
@@ -14,9 +18,8 @@ unsafe impl Send for KWriter {}
 
 static KWRITER: Mutex<Option<KWriter>> = Mutex::new(None);
 
-const FONT_W: usize = 9; // 8px + 1px spacing
-const FONT_H: usize = 10; // 8px + 2px spacing
-const SCALE: usize = 1;
+const FONT_W: usize = get_raster_width(FONT_WEIGHT, FONT_HEIGHT);
+const FONT_H: usize = 18; // 16px + 2px spacing
 
 pub fn init(fb: &Framebuffer) {
     // Clone will be removed later.
@@ -32,24 +35,24 @@ impl fmt::Write for KWriter {
         for ch in s.chars() {
             if ch == '\n' {
                 self.x = 0;
-                self.y += FONT_H * SCALE;
+                self.y += FONT_H;
                 continue;
             }
 
-            if self.y + FONT_H * SCALE >= height {
+            if self.y + FONT_H >= height {
                 self.y = 0;
                 graphics::clear_background(&self.fb, [0, 0, 0]);
             }
 
-            if self.x + FONT_W * SCALE >= width {
+            if self.x + FONT_W >= width {
                 self.x = 0;
-                self.y += FONT_H * SCALE;
+                self.y += FONT_H;
             }
 
             let mut buf = [0u8; 4];
             let s = ch.encode_utf8(&mut buf);
             graphics::draw_text(&self.fb, s, (self.x, self.y), [255, 255, 255]);
-            self.x += FONT_W * SCALE;
+            self.x += FONT_W;
         }
 
         Ok(())
