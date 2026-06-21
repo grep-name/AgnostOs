@@ -1,6 +1,10 @@
 use core::arch::asm;
+use pc_keyboard::{
+    DecodedKey, HandleControl, KeyCode, KeyState, PS2Keyboard, ScancodeSet1, layouts,
+};
+use spin::Mutex;
 
-pub unsafe fn inb(port: u16) -> u8 {
+unsafe fn inb(port: u16) -> u8 {
     let val: u8;
     unsafe {
         asm!("in al, dx", out("al") val, in("dx") port);
@@ -8,64 +12,57 @@ pub unsafe fn inb(port: u16) -> u8 {
     val
 }
 
-pub fn read_scan_code_if_available() -> Option<u8> {
-    unsafe {
-        let status = inb(0x64);
-        if status & 1 != 0 {
-            return Some(inb(0x60));
-        } else {
-            return None;
-        }
-    }
+static KEYBOARD: Mutex<PS2Keyboard<layouts::Us104Key, ScancodeSet1>> =
+    Mutex::new(PS2Keyboard::new(
+        ScancodeSet1::new(),
+        layouts::Us104Key,
+        HandleControl::Ignore,
+    ));
+
+static CTRL_HELD: Mutex<bool> = Mutex::new(false);
+
+pub enum KeyboardEvent {
+    Char(char),
+    CtrlC,
+    ZoomIn,
+    ZoomOut,
 }
 
-// minimal US QWERTY scancode set 1 -> ascii
-pub fn scancode_to_ascii(code: u8) -> Option<char> {
-    // ignore key release (top bit set)
-    if code & 0x80 != 0 {
-        return None;
+pub fn poll() -> Option<KeyboardEvent> {
+    unsafe {
+        let status = inb(0x64);
+        if status & 1 == 0 {
+            return None; // no data waiting
+        }
+
+        let scancode = inb(0x60);
+        let mut kb = KEYBOARD.lock();
+
+        if let Ok(Some(key_event)) = kb.add_byte(scancode) {
+            match key_event.code {
+                KeyCode::LControl | KeyCode::RControl => {
+                    *CTRL_HELD.lock() = key_event.state == KeyState::Down;
+                    return None;
+                }
+                _ => {}
+            }
+
+            let ctrl = *CTRL_HELD.lock();
+
+            if ctrl && key_event.state == KeyState::Down {
+                match key_event.code {
+                    KeyCode::C => return Some(KeyboardEvent::CtrlC),
+                    KeyCode::OemPlus => return Some(KeyboardEvent::ZoomIn),
+                    KeyCode::OemMinus => return Some(KeyboardEvent::ZoomOut),
+                    _ => {}
+                }
+            }
+
+            // normal character decoding
+            if let Some(DecodedKey::Unicode(c)) = kb.process_keyevent(key_event) {
+                return Some(KeyboardEvent::Char(c));
+            }
+        }
     }
-    let c = match code {
-        0x1E => 'a',
-        0x30 => 'b',
-        0x2E => 'c',
-        0x20 => 'd',
-        0x12 => 'e',
-        0x21 => 'f',
-        0x22 => 'g',
-        0x23 => 'h',
-        0x17 => 'i',
-        0x24 => 'j',
-        0x25 => 'k',
-        0x26 => 'l',
-        0x32 => 'm',
-        0x31 => 'n',
-        0x18 => 'o',
-        0x19 => 'p',
-        0x10 => 'q',
-        0x13 => 'r',
-        0x1F => 's',
-        0x14 => 't',
-        0x16 => 'u',
-        0x2F => 'v',
-        0x11 => 'w',
-        0x2D => 'x',
-        0x15 => 'y',
-        0x2C => 'z',
-        0x02 => '1',
-        0x03 => '2',
-        0x04 => '3',
-        0x05 => '4',
-        0x06 => '5',
-        0x07 => '6',
-        0x08 => '7',
-        0x09 => '8',
-        0x0A => '9',
-        0x0B => '0',
-        0x39 => ' ',
-        0x1C => '\n',
-        0x0E => '\u{8}', // backspace
-        _ => return None,
-    };
-    Some(c)
+    None
 }
