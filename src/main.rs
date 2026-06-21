@@ -1,17 +1,13 @@
 #![no_main]
 #![no_std]
 
-use core::{any, time::Duration};
+use core::time::Duration;
 
 extern crate alloc;
 
-use agnostos::{
-    allocator::AgnostosAllocator,
-    color,
-    graphics::{self, Framebuffer},
-    keyboard, kprint, kprintln,
-};
-use alloc::{format, string::String};
+use agnostos::shell;
+use agnostos::{allocator::AgnostosAllocator, color, graphics::Framebuffer};
+
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
     mem::memory_map::MemoryMap,
@@ -48,7 +44,7 @@ fn main() -> Status {
     set_graphics_mode(gop);
 
     let fb = Framebuffer::new(gop);
-    agnostos::kprintln::init(&fb);
+    agnostos::console::init(&fb);
 
     uefi::println!("Exiting boot services in 3 seconds...");
 
@@ -75,80 +71,18 @@ fn main() -> Status {
     // Giving the allocator the pointer to heap
     ALLOCATOR.init(heap_start, heap_size);
 
-    //    let s = format!(
-    //        "heap_start: {} \n heap_end: {} \n heap_size: {}mb",
-    //        heap_start,
-    //        heap_start + heap_size,
-    //        heap_size / (1024 * 1024)
-    //    );
-    //
-    //    let msg = stress_test();
-    //
     agnostos::graphics::clear_background(&fb, color::BLACK);
-    //
-    //    kprintln!("{}", &msg);
-    //    kprintln!("{}", &s);
-    //
-    //    kprintln!("------------------------------------------");
-    //
-    //    kprintln!("comparing both the versions of rendering text");
-    //    kprintln!("survived 10000 allocs!");
-    //
 
-    let mut line = String::new();
-
-    kprint!("> ");
-    loop {
-        if let Some(code) = keyboard::read_scan_code_if_available() {
-            if let Some(ch) = keyboard::scancode_to_ascii(code) {
-                kprintln::erase_cursor();
-                match ch {
-                    '\n' => {
-                        kprintln!();
-                        run_command(&line);
-                        line.clear();
-                        kprint!("> ");
-                    }
-
-                    '\u{8}' => {
-                        if line.pop().is_some() {
-                            kprintln::backspace();
-                        }
-                    }
-
-                    c => {
-                        line.push(c);
-                        kprint!("{}", c);
-                    }
-                }
-                kprintln::draw_cursor(); // redraw cursor at new position
-            }
-        }
-    }
-}
-
-fn run_command(command: &str) {
-    let command = command.trim();
-
-    match command {
-        "help" => kprintln!("Commands: help, clear, about"),
-        "about" => kprintln!("AgnostOs v0.1 - written in Rust \n github.com/grep-name/agnostos"),
-        "" => {}
-        "clear" => agnostos::kprintln::reset(),
-        _ => {
-            kprintln!("Unknown command");
-        }
-    }
+    return shell::init();
 }
 
 fn set_graphics_mode(gop: &mut GraphicsOutput) {
     let mode = gop
         .modes()
-        .find(|mode| {
-            let info = mode.info();
-            info.resolution() == (1024, 768)
+        .max_by_key(|mode| {
+            let (w, h) = mode.info().resolution();
+            w * h
         })
-        .unwrap();
-
+        .expect("no graphics modes available");
     gop.set_mode(&mode).expect("Failed to set graphics mode");
 }

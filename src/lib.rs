@@ -14,6 +14,13 @@ pub mod graphics;
 pub mod uefi_graphics;
 
 /// Module that contains the code for printing text to the screen same way println! does
-pub mod kprintln;
+pub mod console;
 
+/// Module that contains the code for using Colors
 pub mod color;
+
+/// Module that contains the code for handling keyboard.
+pub mod keyboard;
+
+/// Module that contains the code for shell.
+pub mod shell;
