@@ -44,6 +44,12 @@ pub fn init() -> Status {
                 KeyboardEvent::ZoomOut => {
                     console::zoom_out();
                 }
+                KeyboardEvent::ArrowUp => {
+                    console::arrow_up(&mut line);
+                }
+                KeyboardEvent::ArrowDown => {
+                    console::arrow_down(&mut line);
+                }
             }
 
             console::draw_cursor(); // redraw cursor at new position

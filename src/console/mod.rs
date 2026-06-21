@@ -14,6 +14,7 @@ struct KWriter {
     history: Vec<String>,
     current_line: String,
     font_size: RasterHeight,
+    history_index: Option<usize>, // None = not currently browsing history
 }
 
 unsafe impl Send for KWriter {}
@@ -43,6 +44,7 @@ pub fn init(fb: &Framebuffer) {
         font_size: RasterHeight::Size16,
         current_line: String::new(),
         history: Vec::new(),
+        history_index: None,
     });
 }
 
@@ -221,4 +223,95 @@ pub fn zoom_out() {
     }
     print_history();
     kprint!("> ");
+}
+
+pub fn arrow_up(current_line: &mut String) {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        let commands: Vec<&String> = writer
+            .history
+            .iter()
+            .filter(|line| line.starts_with("> ") && line != &"^C" && line != &"")
+            .collect();
+
+        if commands.is_empty() {
+            return;
+        }
+
+        let new_index = match writer.history_index {
+            None => commands.len() - 1, // start from most recent
+            Some(0) => 0,               // already at oldest, stay
+            Some(i) => i - 1,
+        };
+
+        writer.history_index = Some(new_index);
+
+        let recalled = commands[new_index].trim_start_matches("> ").to_string();
+
+        redraw_input_line(writer, &recalled);
+        current_line.clear();
+        current_line.push_str(&recalled);
+    }
+}
+
+pub fn arrow_down(current_line: &mut String) {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        let commands: Vec<&String> = writer
+            .history
+            .iter()
+            .filter(|line| line.starts_with("> "))
+            .collect();
+
+        if commands.is_empty() {
+            return;
+        }
+
+        let new_text = match writer.history_index {
+            None => return, // not browsing, nothing to do
+            Some(i) if i + 1 < commands.len() => {
+                writer.history_index = Some(i + 1);
+                commands[i + 1].trim_start_matches("> ").to_string()
+            }
+            Some(_) => {
+                writer.history_index = None; // past the newest, clear back to empty input
+                String::new()
+            }
+        };
+
+        redraw_input_line(writer, &new_text);
+        current_line.clear();
+        current_line.push_str(&new_text);
+    }
+}
+
+fn redraw_input_line(writer: &mut KWriter, text: &str) {
+    let fh = font_h(writer.font_size);
+    let fw = font_w(writer.font_size);
+
+    // erase the current input line area (just this row, from x=0 to screen width)
+    graphics::draw_rec(
+        &writer.fb,
+        (0, writer.y),
+        (writer.fb.width, fh),
+        color::BLACK,
+    );
+
+    let prompt = "> ";
+
+    graphics::draw_text(
+        &writer.fb,
+        prompt,
+        (0, writer.y),
+        color::WHITE,
+        Some(writer.font_size),
+    );
+
+    graphics::draw_text(
+        &writer.fb,
+        text,
+        (fw * prompt.chars().count(), writer.y),
+        color::WHITE,
+        Some(writer.font_size),
+    );
+
+    writer.x = fw * (prompt.chars().count() + text.chars().count());
 }

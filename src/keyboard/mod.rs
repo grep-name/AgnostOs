@@ -26,6 +26,8 @@ pub enum KeyboardEvent {
     CtrlC,
     ZoomIn,
     ZoomOut,
+    ArrowUp,
+    ArrowDown,
 }
 
 pub fn poll() -> Option<KeyboardEvent> {
@@ -44,6 +46,8 @@ pub fn poll() -> Option<KeyboardEvent> {
                     *CTRL_HELD.lock() = key_event.state == KeyState::Down;
                     return None;
                 }
+                KeyCode::ArrowUp => return Some(KeyboardEvent::ArrowUp),
+                KeyCode::ArrowDown => return Some(KeyboardEvent::ArrowDown),
                 _ => {}
             }
 
