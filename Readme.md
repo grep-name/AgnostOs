@@ -14,7 +14,8 @@
 
 ## TODOS
 
-- Handle keyboard input
+- Add scrollable shit
+- Handle up and down arrow history thing
 
 ## Contributing
 
