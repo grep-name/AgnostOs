@@ -10,6 +10,16 @@ pub struct Color {
     pub b: u8,
 }
 
+impl From<[u8; 3]> for Color {
+    fn from(value: [u8; 3]) -> Self {
+        Self {
+            r: value[0],
+            g: value[1],
+            b: value[2],
+        }
+    }
+}
+
 pub const WHITE: Color = Color::new(255, 255, 255);
 pub const BLACK: Color = Color::new(0, 0, 0);
 
