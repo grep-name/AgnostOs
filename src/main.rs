@@ -1,11 +1,16 @@
 #![no_main]
 #![no_std]
 
-use core::time::Duration;
+use core::{any, time::Duration};
 
 extern crate alloc;
 
-use agnostos::{allocator::AgnostosAllocator, color, graphics::Framebuffer, kprintln};
+use agnostos::{
+    allocator::AgnostosAllocator,
+    color,
+    graphics::{self, Framebuffer},
+    keyboard, kprint, kprintln,
+};
 use alloc::{format, string::String};
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
@@ -70,26 +75,70 @@ fn main() -> Status {
     // Giving the allocator the pointer to heap
     ALLOCATOR.init(heap_start, heap_size);
 
-    let s = format!(
-        "heap_start: {} \n heap_end: {} \n heap_size: {}mb",
-        heap_start,
-        heap_start + heap_size,
-        heap_size / (1024 * 1024)
-    );
-
-    let msg = stress_test();
-
+    //    let s = format!(
+    //        "heap_start: {} \n heap_end: {} \n heap_size: {}mb",
+    //        heap_start,
+    //        heap_start + heap_size,
+    //        heap_size / (1024 * 1024)
+    //    );
+    //
+    //    let msg = stress_test();
+    //
     agnostos::graphics::clear_background(&fb, color::BLACK);
+    //
+    //    kprintln!("{}", &msg);
+    //    kprintln!("{}", &s);
+    //
+    //    kprintln!("------------------------------------------");
+    //
+    //    kprintln!("comparing both the versions of rendering text");
+    //    kprintln!("survived 10000 allocs!");
+    //
 
-    kprintln!("{}", &msg);
-    kprintln!("{}", &s);
+    let mut line = String::new();
 
-    kprintln!("------------------------------------------");
+    kprint!("> ");
+    loop {
+        if let Some(code) = keyboard::read_scan_code_if_available() {
+            if let Some(ch) = keyboard::scancode_to_ascii(code) {
+                kprintln::erase_cursor();
+                match ch {
+                    '\n' => {
+                        kprintln!();
+                        run_command(&line);
+                        line.clear();
+                        kprint!("> ");
+                    }
 
-    kprintln!("comparing both the versions of rendering text");
-    kprintln!("survived 10000 allocs!");
+                    '\u{8}' => {
+                        if line.pop().is_some() {
+                            kprintln::backspace();
+                        }
+                    }
 
-    loop {}
+                    c => {
+                        line.push(c);
+                        kprint!("{}", c);
+                    }
+                }
+                kprintln::draw_cursor(); // redraw cursor at new position
+            }
+        }
+    }
+}
+
+fn run_command(command: &str) {
+    let command = command.trim();
+
+    match command {
+        "help" => kprintln!("Commands: help, clear, about"),
+        "about" => kprintln!("AgnostOs v0.1 - written in Rust \n github.com/grep-name/agnostos"),
+        "" => {}
+        "clear" => agnostos::kprintln::reset(),
+        _ => {
+            kprintln!("Unknown command");
+        }
+    }
 }
 
 fn set_graphics_mode(gop: &mut GraphicsOutput) {
@@ -102,35 +151,4 @@ fn set_graphics_mode(gop: &mut GraphicsOutput) {
         .unwrap();
 
     gop.set_mode(&mode).expect("Failed to set graphics mode");
-}
-
-/// Allocates 10000 vectors to stress test our allocator implementation
-fn stress_test() -> String {
-    // Stress testing
-    let addr1;
-    let addr2;
-
-    {
-        let v: alloc::vec::Vec<u8> = alloc::vec![1, 2, 3];
-        addr1 = v.as_ptr() as usize;
-    }
-
-    {
-        let v2: alloc::vec::Vec<u8> = alloc::vec![4, 5, 6];
-        addr2 = v2.as_ptr() as usize;
-    }
-
-    for _ in 0..10000 {
-        let _: alloc::vec::Vec<u8> = alloc::vec![0u8; 1024];
-    }
-
-    // if dealloc works, addr1 and addr2 should be the same (or very close)
-    let msg = format!(
-        "addr1: {:#x} addr2: {:#x} same: {}",
-        addr1,
-        addr2,
-        addr1 == addr2
-    );
-
-    return msg;
 }
