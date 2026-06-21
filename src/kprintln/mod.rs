@@ -82,3 +82,56 @@ macro_rules! kprintln {
         $crate::kprint!("\n");
     }};
 }
+
+pub fn reset() {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        graphics::clear_background(&writer.fb, color::BLACK);
+        writer.x = 0;
+        writer.y = 0;
+    }
+}
+
+pub fn backspace() {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        if writer.x == 0 {
+            if writer.y == 0 {
+                return; // top-left corner, nothing to erase
+            }
+            // x == 0 and there's a previous line — wrap up to it
+            writer.y -= FONT_H;
+            writer.x = writer.fb.width - (writer.fb.width % FONT_W) - FONT_W;
+        } else {
+            // normal case: just move back within this line
+            writer.x -= FONT_W;
+        }
+
+        crate::graphics::draw_rec(
+            &writer.fb,
+            (writer.x, writer.y),
+            (FONT_W, FONT_H),
+            crate::color::BLACK,
+        );
+    }
+}
+
+pub fn draw_cursor() {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        crate::graphics::draw_rec(
+            &writer.fb,
+            (writer.x, writer.y),
+            (FONT_W, FONT_H - 4),
+            crate::color::WHITE, // cursor color
+        );
+    }
+}
+
+pub fn erase_cursor() {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        crate::graphics::draw_rec(
+            &writer.fb,
+            (writer.x, writer.y),
+            (FONT_W, FONT_H - 4),
+            crate::color::BLACK, // background color
+        );
+    }
+}
