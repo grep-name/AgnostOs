@@ -14,8 +14,7 @@
 
 ## TODOS
 
-- Add scrollable shit
-- Handle up and down arrow history thing
+- Improve scrollback UX (e.g., smoother paging/navigation)
 
 ## Contributing
 
