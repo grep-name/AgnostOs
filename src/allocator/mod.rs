@@ -6,15 +6,15 @@ struct FreeChunk {
     next: *mut FreeChunk,
 }
 
-pub struct SomethingAllocator {
+pub struct AgnostosAllocator {
     head: spin::Mutex<*mut FreeChunk>,
 }
 
 // Since we are only one core they are here just so rust compiler would shut up and dont do anything.
-unsafe impl Send for SomethingAllocator {}
-unsafe impl Sync for SomethingAllocator {}
+unsafe impl Send for AgnostosAllocator {}
+unsafe impl Sync for AgnostosAllocator {}
 
-impl SomethingAllocator {
+impl AgnostosAllocator {
     pub const fn new() -> Self {
         Self {
             head: spin::Mutex::new(core::ptr::null_mut()),
@@ -31,7 +31,7 @@ impl SomethingAllocator {
     }
 }
 
-unsafe impl GlobalAlloc for SomethingAllocator {
+unsafe impl GlobalAlloc for AgnostosAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         unsafe {
             let size = layout.size().max(core::mem::size_of::<FreeChunk>());

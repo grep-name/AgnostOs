@@ -5,8 +5,8 @@ use core::time::Duration;
 
 extern crate alloc;
 
+use agnostos::{allocator::AgnostosAllocator, color, graphics::Framebuffer, kprintln};
 use alloc::{format, string::String};
-use something::{allocator::SomethingAllocator, color, graphics::Framebuffer, kprintln};
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
     mem::memory_map::MemoryMap,
@@ -15,7 +15,7 @@ use uefi::{
 };
 
 #[global_allocator]
-static ALLOCATOR: SomethingAllocator = SomethingAllocator::new();
+static ALLOCATOR: AgnostosAllocator = AgnostosAllocator::new();
 
 #[entry]
 fn main() -> Status {
@@ -43,7 +43,7 @@ fn main() -> Status {
     set_graphics_mode(gop);
 
     let fb = Framebuffer::new(gop);
-    something::kprintln::init(&fb);
+    agnostos::kprintln::init(&fb);
 
     uefi::println!("Exiting boot services in 3 seconds...");
 
@@ -79,7 +79,7 @@ fn main() -> Status {
 
     let msg = stress_test();
 
-    something::graphics::clear_background(&fb, color::WHITE);
+    agnostos::graphics::clear_background(&fb, color::BLACK);
 
     kprintln!("{}", &msg);
     kprintln!("{}", &s);
@@ -87,8 +87,6 @@ fn main() -> Status {
     kprintln!("------------------------------------------");
 
     kprintln!("comparing both the versions of rendering text");
-
-    something::graphics::draw_text(&fb, "survived 10000 allocs!", (100, 200), color::BLACK);
     kprintln!("survived 10000 allocs!");
 
     loop {}

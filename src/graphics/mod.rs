@@ -52,9 +52,9 @@ impl Framebuffer {
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::graphics::clear_background(&fb, Color { r: 255, g: 255, b: 255 });
+/// agnostos::graphics::clear_background(&fb, Color { r: 255, g: 255, b: 255 });
 /// ```
 pub fn clear_background(fb: &Framebuffer, color: Color) {
     for row in 0..fb.height {
@@ -71,9 +71,9 @@ pub fn clear_background(fb: &Framebuffer, color: Color) {
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::graphics::draw_rec(&fb, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
+/// agnostos::graphics::draw_rec(&fb, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize), color: Color) {
     let x2 = x + w;
@@ -94,9 +94,9 @@ pub fn draw_rec(fb: &Framebuffer, (x, y): (usize, usize), (w, h): (usize, usize)
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::graphics::draw_circle(&fb, 20, (100, 100), Color { r: 0, g: 0, b: 0 });
+/// agnostos::graphics::draw_circle(&fb, 20, (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), color: Color) {
     let r = radius as isize;
@@ -123,9 +123,9 @@ pub fn draw_circle(fb: &Framebuffer, radius: usize, (cx, cy): (usize, usize), co
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::graphics::draw_line(&fb, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
+/// agnostos::graphics::draw_line(&fb, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), color: Color) {
     let dx = (x2 - x1).abs();
@@ -158,9 +158,9 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::graphics::draw_text(&fb, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
+/// agnostos::graphics::draw_text(&fb, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_text(fb: &Framebuffer, text: &str, (x, y): (usize, usize), color: Color) {
     let mut cursor_x = x;

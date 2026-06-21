@@ -17,9 +17,9 @@ unsafe fn write_pixel_bgr(fb: &mut FrameBuffer, pixel_base: usize, color: &Color
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::uefi_graphics::clear_background(gop, Color: { r: 255, g: 255, b: 255 });
+/// agnostos::uefi_graphics::clear_background(gop, Color: { r: 255, g: 255, b: 255 });
 /// ```
 pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
     let (width, height) = gop.current_mode_info().resolution();
@@ -38,9 +38,9 @@ pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::uefi_graphics::draw_rec(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
+/// agnostos::uefi_graphics::draw_rec(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_rec(
     gop: &mut GraphicsOutput,
@@ -81,9 +81,9 @@ pub fn draw_rec(
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::uefi_graphics::draw_circle(gop, 20, (100, 100), Color { r: 0, g: 0, b: 0 });
+/// agnostos::uefi_graphics::draw_circle(gop, 20, (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_circle(
     gop: &mut GraphicsOutput,
@@ -128,9 +128,9 @@ pub fn draw_circle(
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::uefi_graphics::draw_line(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
+/// agnostos::uefi_graphics::draw_line(gop, (100, 100), (100, 100), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_line(
     gop: &mut GraphicsOutput,
@@ -180,9 +180,9 @@ pub fn draw_line(
 /// **Example**
 ///
 /// ```rust
-/// use something::Color;
+/// use agnostos::Color;
 ///
-/// something::uefi_graphics::draw_text(gop, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
+/// agnostos::uefi_graphics::draw_text(gop, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
 /// ```
 pub fn draw_text(gop: &mut GraphicsOutput, text: &str, (x, y): (usize, usize), color: Color) {
     let mi = gop.current_mode_info();
