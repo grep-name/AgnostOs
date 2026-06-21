@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-noto-sans-mono-bitmap = { version = "0.3", features = ["size_16", "regular"] }
+noto-sans-mono-bitmap = { version = "0.3", features = ["size_16", "size_20", "size_24", "size_32", "regular"] }
+pc-keyboard = "0.9.0"
 spin = "0.12.0"
 uefi = "0.37.0"
 
