@@ -46,9 +46,9 @@ fn main() -> Status {
     let fb = Framebuffer::new(gop);
     agnostos::console::init(&fb);
 
-    uefi::println!("Exiting boot services in 3 seconds...");
+    uefi::println!("Exiting boot services in 1 seconds...");
 
-    let dr = Duration::from_millis(3000);
+    let dr = Duration::from_millis(1000);
     boot::stall(dr);
 
     let memory_map = unsafe { boot::exit_boot_services(Some(MemoryType::LOADER_DATA)) };
