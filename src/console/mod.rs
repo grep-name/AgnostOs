@@ -315,3 +315,9 @@ fn redraw_input_line(writer: &mut KWriter, text: &str) {
 
     writer.x = fw * (prompt.chars().count() + text.chars().count());
 }
+
+pub(crate) fn set_font_size(font_size: RasterHeight) {
+    if let Some(writer) = KWRITER.lock().as_mut() {
+        writer.font_size = font_size;
+    }
+}

@@ -5,8 +5,9 @@ use core::time::Duration;
 
 extern crate alloc;
 
-use agnostos::shell;
+use agnostos::{HEAP_SIZE, HEAP_START, shell};
 use agnostos::{allocator::AgnostosAllocator, color, graphics::Framebuffer};
+use core::sync::atomic::Ordering;
 
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
@@ -69,6 +70,9 @@ fn main() -> Status {
     }
 
     // Giving the allocator the pointer to heap
+    HEAP_START.store(heap_start, Ordering::Relaxed);
+    HEAP_SIZE.store(heap_size, Ordering::Relaxed);
+
     ALLOCATOR.init(heap_start, heap_size);
 
     agnostos::graphics::clear_background(&fb, color::BLACK);
