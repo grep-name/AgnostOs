@@ -114,7 +114,7 @@ macro_rules! kprintln {
     }};
 }
 
-pub fn reset() {
+pub(crate) fn reset() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         graphics::clear_background(&writer.fb, color::BLACK);
         writer.x = 0;
@@ -124,7 +124,7 @@ pub fn reset() {
     }
 }
 
-pub fn backspace() {
+pub(crate) fn backspace() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
         let fw = font_w(writer.font_size);
@@ -148,7 +148,7 @@ pub fn backspace() {
     }
 }
 
-pub fn draw_cursor() {
+pub(crate) fn draw_cursor() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
         let fw = font_w(writer.font_size);
@@ -161,7 +161,7 @@ pub fn draw_cursor() {
     }
 }
 
-pub fn erase_cursor() {
+pub(crate) fn erase_cursor() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
         let fw = font_w(writer.font_size);
@@ -174,7 +174,7 @@ pub fn erase_cursor() {
     }
 }
 
-pub fn print_history() {
+pub(crate) fn print_history() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
         let mut y = 0;
@@ -197,7 +197,7 @@ pub fn print_history() {
     }
 }
 
-pub fn zoom_in() {
+pub(crate) fn zoom_in() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         writer.font_size = match writer.font_size {
             RasterHeight::Size16 => RasterHeight::Size20,
@@ -211,7 +211,7 @@ pub fn zoom_in() {
     kprint!("> ");
 }
 
-pub fn zoom_out() {
+pub(crate) fn zoom_out() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         writer.font_size = match writer.font_size {
             RasterHeight::Size32 => RasterHeight::Size24,
@@ -225,7 +225,7 @@ pub fn zoom_out() {
     kprint!("> ");
 }
 
-pub fn arrow_up(current_line: &mut String) {
+pub(crate) fn arrow_up(current_line: &mut String) {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let commands: Vec<&String> = writer
             .history
@@ -253,7 +253,7 @@ pub fn arrow_up(current_line: &mut String) {
     }
 }
 
-pub fn arrow_down(current_line: &mut String) {
+pub(crate) fn arrow_down(current_line: &mut String) {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let commands: Vec<&String> = writer
             .history
