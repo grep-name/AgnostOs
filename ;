@@ -65,9 +65,9 @@ pub fn init() -> Status {
 fn run_command(command: &str) {
     let command = command.trim();
 
-    let mut iter = command.split_whitespace();
+    let iter = command.split_whitespace();
 
-    let command = iter.next().unwrap_or("");
+    let mut command = iter.next();
     let mut flags = Vec::new();
 
     for part in iter {
