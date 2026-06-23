@@ -28,6 +28,7 @@ pub enum KeyboardEvent {
     ZoomOut,
     ArrowUp,
     ArrowDown,
+    CtrlL,
 }
 
 pub fn poll() -> Option<KeyboardEvent> {
@@ -47,10 +48,10 @@ pub fn poll() -> Option<KeyboardEvent> {
                     return None;
                 }
                 KeyCode::ArrowUp if key_event.state == KeyState::Down => {
-                    return Some(KeyboardEvent::ArrowUp)
+                    return Some(KeyboardEvent::ArrowUp);
                 }
                 KeyCode::ArrowDown if key_event.state == KeyState::Down => {
-                    return Some(KeyboardEvent::ArrowDown)
+                    return Some(KeyboardEvent::ArrowDown);
                 }
                 _ => {}
             }
@@ -60,6 +61,7 @@ pub fn poll() -> Option<KeyboardEvent> {
             if ctrl && key_event.state == KeyState::Down {
                 match key_event.code {
                     KeyCode::C => return Some(KeyboardEvent::CtrlC),
+                    KeyCode::L => return Some(KeyboardEvent::CtrlL),
                     KeyCode::OemPlus => return Some(KeyboardEvent::ZoomIn),
                     KeyCode::OemMinus => return Some(KeyboardEvent::ZoomOut),
                     _ => {}

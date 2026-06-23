@@ -50,6 +50,11 @@ pub fn init() -> Status {
                 KeyboardEvent::ArrowDown => {
                     console::arrow_down(&mut line);
                 }
+                KeyboardEvent::CtrlL => {
+                    run_command("clear");
+                    line.clear();
+                    kprint!("> ");
+                }
             }
 
             console::draw_cursor(); // redraw cursor at new position
