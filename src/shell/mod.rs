@@ -4,12 +4,14 @@ use noto_sans_mono_bitmap::RasterHeight;
 use uefi::Status;
 
 use crate::{
-    HEAP_SIZE, HEAP_START, PROMPT, console,
+    HEAP_SIZE, HEAP_START, PROMPT, color, console,
+    graphics::{self, Framebuffer},
     keyboard::{self, KeyboardEvent},
     kprint, kprintln,
 };
 
-pub fn init() -> Status {
+pub fn init(fb: &Framebuffer) -> Status {
+    graphics::clear_background(&fb, color::BLACK);
     let mut line = String::new();
 
     kprint!("{PROMPT}");

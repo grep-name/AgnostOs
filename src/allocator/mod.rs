@@ -1,5 +1,13 @@
 use core::alloc::GlobalAlloc;
 use core::alloc::Layout;
+use core::sync::atomic::Ordering;
+
+use uefi::boot;
+use uefi::boot::MemoryType;
+use uefi::mem::memory_map::MemoryMap;
+
+use crate::HEAP_SIZE;
+use crate::HEAP_START;
 
 struct FreeChunk {
     size: usize,
@@ -21,7 +29,28 @@ impl AgnostosAllocator {
         }
     }
 
-    pub fn init(&self, heap_start: usize, heap_size: usize) {
+    pub fn init(&self) {
+        let memory_map = unsafe { boot::exit_boot_services(Some(MemoryType::LOADER_DATA)) };
+
+        let mut heap_start = 0usize;
+        let mut heap_size = 0usize;
+
+        for descriptor in memory_map.entries() {
+            // Free usable memory
+            if descriptor.ty == MemoryType::CONVENTIONAL {
+                let size = descriptor.page_count as usize * 4096;
+
+                if size > heap_size {
+                    heap_start = descriptor.phys_start as usize;
+                    heap_size = size;
+                }
+            }
+        }
+
+        // Giving the allocator the pointer to heap
+        HEAP_START.store(heap_start, Ordering::Relaxed);
+        HEAP_SIZE.store(heap_size, Ordering::Relaxed);
+
         unsafe {
             let chunk = heap_start as *mut FreeChunk;
             (*chunk).size = heap_size;
