@@ -1,7 +1,12 @@
+//! Shell module — interactive command-line interface for AgnostOs.
+//!
+//! Provides a polling input loop that reads keyboard events and dispatches
+//! them to the appropriate console or command handler. Commands are parsed
+//! into a name, optional flags (prefixed with `-`), and positional arguments.
+
 use core::sync::atomic::Ordering;
 
 use noto_sans_mono_bitmap::RasterHeight;
-use uefi::Status;
 
 use crate::{
     HEAP_SIZE, HEAP_START, PROMPT, color, console,
@@ -10,16 +15,29 @@ use crate::{
     kprint, kprintln,
 };
 
-pub fn init(fb: &Framebuffer) -> Status {
-    graphics::clear_background(&fb, color::BLACK);
+/// Initializes and runs the interactive shell. Never returns (`-> !`).
+///
+/// Clears the screen, prints the initial prompt, and enters a polling loop
+/// that reads keyboard events and dispatches them:
+///
+/// - Printable characters are echoed and appended to the current line buffer.
+/// - Enter runs the current line as a command via [`run_command`].
+/// - Backspace erases the last character both from the buffer and the screen.
+/// - Ctrl+C cancels the current line.
+/// - Ctrl+L clears the screen.
+/// - Arrow up/down navigate command history.
+/// - Ctrl+Plus/Minus zoom the font in/out.
+pub fn init(fb: &Framebuffer) -> ! {
+    graphics::clear_background(fb, color::BLACK);
     let mut line = String::new();
 
     kprint!("{PROMPT}");
-    console::draw_cursor(); // draw cursor at the very beginning
+    console::draw_cursor();
 
     loop {
         if let Some(key) = keyboard::poll() {
             console::erase_cursor();
+
             match key {
                 KeyboardEvent::Char(c) => match c {
                     '\n' => {
@@ -29,6 +47,7 @@ pub fn init(fb: &Framebuffer) -> Status {
                         kprint!("{PROMPT}");
                     }
                     '\u{8}' => {
+                        // backspace — remove last char from buffer and erase from screen
                         if line.pop().is_some() {
                             console::backspace();
                         }
@@ -43,18 +62,10 @@ pub fn init(fb: &Framebuffer) -> Status {
                     line.clear();
                     kprint!("{PROMPT}");
                 }
-                KeyboardEvent::ZoomIn => {
-                    console::zoom_in();
-                }
-                KeyboardEvent::ZoomOut => {
-                    console::zoom_out();
-                }
-                KeyboardEvent::ArrowUp => {
-                    console::arrow_up(&mut line);
-                }
-                KeyboardEvent::ArrowDown => {
-                    console::arrow_down(&mut line);
-                }
+                KeyboardEvent::ZoomIn => console::zoom_in(),
+                KeyboardEvent::ZoomOut => console::zoom_out(),
+                KeyboardEvent::ArrowUp => console::arrow_up(&mut line),
+                KeyboardEvent::ArrowDown => console::arrow_down(&mut line),
                 KeyboardEvent::CtrlL => {
                     console::reset();
                     line.clear();
@@ -62,20 +73,24 @@ pub fn init(fb: &Framebuffer) -> Status {
                 }
             }
 
-            console::draw_cursor(); // redraw cursor at new position
+            console::draw_cursor();
         }
     }
 }
 
+/// Parses and dispatches a command string.
+///
+/// Splits the input into a command name, flags (tokens starting with `-`),
+/// and positional arguments. Dispatches to the appropriate handler or prints
+/// "Unknown command" if the command is not recognized.
 fn run_command(command: &str) {
     let command = command.trim();
-
     let mut iter = command.split_whitespace();
-
     let command = iter.next().unwrap_or("");
-    let mut flags = Vec::new();
-    let mut args = Vec::new();
 
+    // separate flags (e.g. --verbose) from positional args
+    let mut flags: Vec<&str> = Vec::new();
+    let mut args: Vec<&str> = Vec::new();
     for part in iter {
         if part.starts_with('-') {
             flags.push(part);
@@ -83,20 +98,16 @@ fn run_command(command: &str) {
             args.push(part);
         }
     }
+    let _ = flags; // flags parsed but reserved for future use
 
     match command {
-        "help" => help(args),
+        "help" => help(&args),
         "about" => kprintln!("AgnostOs v0.1 - written in Rust \n github.com/grep-name/agnostos"),
-        "history" => {
-            console::print_history();
-        }
-        "echo" => {
-            kprintln!("{}", args.join(" "));
-        }
+        "history" => console::print_history(),
+        "echo" => kprintln!("{}", args.join(" ")),
         "meminfo" => {
             let start = HEAP_START.load(Ordering::Relaxed);
             let size = HEAP_SIZE.load(Ordering::Relaxed);
-
             kprintln!("heap start: {:#x}", start);
             kprintln!("heap size:  {}mb", size / (1024 * 1024));
         }
@@ -109,13 +120,15 @@ fn run_command(command: &str) {
         },
         "clear" => console::reset(),
         "" => {}
-        _ => {
-            kprintln!("Unknown command");
-        }
+        _ => kprintln!("Unknown command"),
     }
 }
 
-fn help(args: Vec<&str>) {
+/// Prints help text for a specific command, or a full command listing if
+/// no argument is given.
+///
+/// Usage: `help [command]`
+fn help(args: &[&str]) {
     if let Some(cmd) = args.first() {
         match *cmd {
             "help" => {
@@ -137,7 +150,7 @@ fn help(args: Vec<&str>) {
                 kprintln!("usage: about");
             }
             "history" => {
-                kprintln!("history - print everything on screen from the beginning");
+                kprintln!("history - reprint visible screen history");
                 kprintln!("usage: history");
             }
             "font" => {
@@ -146,7 +159,7 @@ fn help(args: Vec<&str>) {
                 kprintln!("example: font 24");
             }
             "meminfo" => {
-                kprintln!("meminfo - show memory information");
+                kprintln!("meminfo - show heap memory information");
                 kprintln!("usage: meminfo");
             }
             _ => kprintln!("unknown command: {}", cmd),
@@ -158,7 +171,7 @@ fn help(args: Vec<&str>) {
         kprintln!("  echo      print text to the screen");
         kprintln!("  clear     clear the screen");
         kprintln!("  about     show OS information");
-        kprintln!("  history   print screen history");
+        kprintln!("  history   reprint screen history");
         kprintln!("  font      change font size");
         kprintln!("  meminfo   show heap memory information");
         kprintln!("");
