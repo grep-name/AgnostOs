@@ -121,6 +121,7 @@ pub(crate) fn reset() {
         writer.y = 0;
         writer.history.clear();
         writer.current_line.clear();
+        writer.history_index = None;
     }
 }
 
