@@ -1,3 +1,17 @@
+//! Console module — stateful text output for the AgnostOs kernel.
+//!
+//! Manages a [`KWriter`] instance that owns the framebuffer reference,
+//! cursor position, font size, and screen/command history. All text
+//! output goes through [`_kprint`] (via the [`kprint!`]/[`kprintln!`] macros),
+//! which acquires the [`KWRITER`] lock and calls [`fmt::Write`] on it.
+//!
+//! # Features
+//! - Scrolling terminal output with configurable scroll threshold
+//! - Command history navigation (up/down arrow keys)
+//! - Font size switching with history redraw (zoom in/out)
+//! - Block cursor rendering
+//! - Backspace with visual erase
+
 use core::fmt;
 use noto_sans_mono_bitmap::{RasterHeight, get_raster_width};
 use spin::Mutex;
@@ -7,20 +21,35 @@ use crate::{
     graphics::{self, Framebuffer},
 };
 
+/// Internal writer state. Holds everything needed to render text to the
+/// framebuffer and track terminal state across keystrokes.
 struct KWriter {
+    /// Raw framebuffer to draw into.
     fb: Framebuffer,
+    /// Current cursor X position in pixels.
     x: usize,
+    /// Current cursor Y position in pixels.
     y: usize,
+    /// All lines that have been completed (ended with `\n`) since the last
+    /// [`reset`]. Used for zoom redraw and command history recall.
     history: Vec<String>,
+    /// The line currently being accumulated (not yet terminated by `\n`).
     current_line: String,
+    /// Active font size. Affects glyph rendering and cursor/line spacing.
     font_size: RasterHeight,
-    history_index: Option<usize>, // None = not currently browsing history
+    /// Index into the command history for up/down arrow recall.
+    /// `None` means the user is not currently browsing history.
+    history_index: Option<usize>,
 }
 
+// SAFETY: Single-core kernel — no actual concurrent access occurs.
+// These impls satisfy Rust's type system requirements for a static global.
 unsafe impl Send for KWriter {}
 
 static KWRITER: Mutex<Option<KWriter>> = Mutex::new(None);
 
+/// Returns the line height in pixels for the given font size, including
+/// 2px of line spacing.
 fn font_h(size: RasterHeight) -> usize {
     let px = match size {
         RasterHeight::Size16 => 16,
@@ -28,13 +57,19 @@ fn font_h(size: RasterHeight) -> usize {
         RasterHeight::Size24 => 24,
         RasterHeight::Size32 => 32,
     };
-    px + 2 // spacing
+    px + 2
 }
 
+/// Returns the character advance width in pixels for the given font size.
 fn font_w(size: RasterHeight) -> usize {
     get_raster_width(FONT_WEIGHT, size)
 }
 
+/// Initializes the console with the given framebuffer.
+///
+/// Must be called before any [`kprint!`] or [`kprintln!`] calls.
+/// Clones the framebuffer so the console owns its own copy of the
+/// raw pointer and dimensions.
 pub fn init(fb: &Framebuffer) {
     let fb = fb.clone();
     *KWRITER.lock() = Some(KWriter {
@@ -49,6 +84,8 @@ pub fn init(fb: &Framebuffer) {
 }
 
 impl KWriter {
+    /// Scrolls the framebuffer up if the cursor has reached the scroll
+    /// threshold (3 lines from the bottom). Adjusts `self.y` accordingly.
     fn check_scroll(&mut self, fh: usize) {
         let threshold = self.fb.height.saturating_sub(3 * fh);
         if self.y >= threshold {
@@ -60,14 +97,17 @@ impl KWriter {
 }
 
 impl fmt::Write for KWriter {
+    /// Writes a string to the framebuffer, handling newlines, line wrapping,
+    /// and scrolling. Each completed line (terminated by `\n`) is pushed
+    /// into `history`.
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let width = self.fb.width;
-
         let fh = font_h(self.font_size);
         let fw = font_w(self.font_size);
 
         for ch in s.chars() {
             if ch == '\n' {
+                // flush current line into history and move cursor down
                 self.history.push(core::mem::take(&mut self.current_line));
                 self.x = 0;
                 self.y += fh;
@@ -77,6 +117,7 @@ impl fmt::Write for KWriter {
 
             self.current_line.push(ch);
 
+            // wrap to next line if we've reached the right edge
             if self.x + fw >= width {
                 self.x = 0;
                 self.y += fh;
@@ -98,6 +139,9 @@ impl fmt::Write for KWriter {
     }
 }
 
+/// Internal print function — acquires the [`KWRITER`] lock and calls
+/// [`fmt::Write::write_fmt`]. Use the [`kprint!`] and [`kprintln!`] macros
+/// instead of calling this directly.
 pub fn _kprint(args: fmt::Arguments) {
     use fmt::Write;
     if let Some(writer) = KWRITER.lock().as_mut() {
@@ -105,6 +149,7 @@ pub fn _kprint(args: fmt::Arguments) {
     }
 }
 
+/// Prints to the kernel console without a trailing newline.
 #[macro_export]
 macro_rules! kprint {
     ($($arg:tt)*) => {
@@ -112,6 +157,7 @@ macro_rules! kprint {
     };
 }
 
+/// Prints to the kernel console with a trailing newline.
 #[macro_export]
 macro_rules! kprintln {
     () => ($crate::kprint!("\n"));
@@ -121,6 +167,8 @@ macro_rules! kprintln {
     }};
 }
 
+/// Clears the screen, resets the cursor to the top-left, and wipes all
+/// history. Called by the `clear` shell command and Ctrl+L.
 pub(crate) fn reset() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         graphics::clear_background(&writer.fb, color::BLACK);
@@ -132,6 +180,8 @@ pub(crate) fn reset() {
     }
 }
 
+/// Erases the last typed character from the screen and moves the cursor back.
+/// Handles wrapping back to the previous line if the cursor is at x=0.
 pub(crate) fn backspace() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
@@ -139,14 +189,16 @@ pub(crate) fn backspace() {
 
         if writer.x == 0 {
             if writer.y == 0 {
-                return;
+                return; // already at top-left, nothing to erase
             }
+            // wrap back to end of previous line
             writer.y -= fh;
             writer.x = writer.fb.width - (writer.fb.width % fw) - fw;
         } else {
             writer.x -= fw;
         }
 
+        // paint over the erased character with background color
         crate::graphics::draw_rec(
             &writer.fb,
             (writer.x, writer.y),
@@ -156,6 +208,7 @@ pub(crate) fn backspace() {
     }
 }
 
+/// Draws a block cursor at the current cursor position.
 pub(crate) fn draw_cursor() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
@@ -169,6 +222,8 @@ pub(crate) fn draw_cursor() {
     }
 }
 
+/// Erases the block cursor at the current cursor position by painting
+/// over it with the background color.
 pub(crate) fn erase_cursor() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
@@ -182,15 +237,18 @@ pub(crate) fn erase_cursor() {
     }
 }
 
+/// Redraws the visible portion of history onto the framebuffer.
+///
+/// Only the most recent lines that fit on screen are shown. Used after
+/// zoom changes to re-render history at the new font size.
 pub(crate) fn print_history() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
         let max_lines = writer.fb.height / fh;
 
-        // only show the tail that fits on screen
-        let lines: Vec<&String> = writer.history.iter().collect();
-        let start = lines.len().saturating_sub(max_lines);
-        let visible = &lines[start..];
+        // only render the tail of history that fits on screen
+        let start = writer.history.len().saturating_sub(max_lines);
+        let visible = &writer.history[start..];
 
         let mut y = 0usize;
         for line in visible {
@@ -211,13 +269,14 @@ pub(crate) fn print_history() {
     }
 }
 
+/// Increases the font size by one step (up to Size32) and redraws history.
 pub(crate) fn zoom_in() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         writer.font_size = match writer.font_size {
             RasterHeight::Size16 => RasterHeight::Size20,
             RasterHeight::Size20 => RasterHeight::Size24,
             RasterHeight::Size24 => RasterHeight::Size32,
-            RasterHeight::Size32 => RasterHeight::Size32,
+            RasterHeight::Size32 => RasterHeight::Size32, // already at max
         };
         graphics::clear_background(&writer.fb, color::BLACK);
     }
@@ -225,13 +284,14 @@ pub(crate) fn zoom_in() {
     kprint!("{PROMPT}");
 }
 
+/// Decreases the font size by one step (down to Size16) and redraws history.
 pub(crate) fn zoom_out() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         writer.font_size = match writer.font_size {
             RasterHeight::Size32 => RasterHeight::Size24,
             RasterHeight::Size24 => RasterHeight::Size20,
             RasterHeight::Size20 => RasterHeight::Size16,
-            RasterHeight::Size16 => RasterHeight::Size16,
+            RasterHeight::Size16 => RasterHeight::Size16, // already at min
         };
         graphics::clear_background(&writer.fb, color::BLACK);
     }
@@ -239,13 +299,20 @@ pub(crate) fn zoom_out() {
     kprint!("{PROMPT}");
 }
 
+/// Returns only the command lines from history (lines starting with [`PROMPT`]),
+/// excluding empty lines and `^C` entries. Used for up/down arrow history recall.
+fn command_history<'a>(history: &'a [String]) -> Vec<&'a String> {
+    history
+        .iter()
+        .filter(|line| line.starts_with(PROMPT) && line.as_str() != "^C" && !line.is_empty())
+        .collect()
+}
+
+/// Navigates one step back in command history, updating the input line
+/// on screen and in the provided `current_line` buffer.
 pub(crate) fn arrow_up(current_line: &mut String) {
     if let Some(writer) = KWRITER.lock().as_mut() {
-        let commands: Vec<&String> = writer
-            .history
-            .iter()
-            .filter(|line| line.starts_with(PROMPT) && line != &"^C" && line != &"")
-            .collect();
+        let commands = command_history(&writer.history);
 
         if commands.is_empty() {
             return;
@@ -253,40 +320,37 @@ pub(crate) fn arrow_up(current_line: &mut String) {
 
         let new_index = match writer.history_index {
             None => commands.len() - 1, // start from most recent
-            Some(0) => 0,               // already at oldest, stay
+            Some(0) => 0,               // already at oldest, clamp
             Some(i) => i - 1,
         };
 
         writer.history_index = Some(new_index);
 
         let recalled = commands[new_index].trim_start_matches(PROMPT).to_string();
-
         redraw_input_line(writer, &recalled);
         current_line.clear();
         current_line.push_str(&recalled);
     }
 }
 
+/// Navigates one step forward in command history. If past the newest entry,
+/// clears the input line (restoring empty prompt).
 pub(crate) fn arrow_down(current_line: &mut String) {
     if let Some(writer) = KWRITER.lock().as_mut() {
-        let commands: Vec<&String> = writer
-            .history
-            .iter()
-            .filter(|line| line.starts_with(PROMPT) && line != &"^C" && line != &"")
-            .collect();
+        let commands = command_history(&writer.history);
 
         if commands.is_empty() {
             return;
         }
 
         let new_text = match writer.history_index {
-            None => return, // not browsing, nothing to do
+            None => return, // not currently browsing, nothing to do
             Some(i) if i + 1 < commands.len() => {
                 writer.history_index = Some(i + 1);
                 commands[i + 1].trim_start_matches(PROMPT).to_string()
             }
             Some(_) => {
-                writer.history_index = None; // past the newest, clear back to empty input
+                writer.history_index = None; // past newest — restore empty input
                 String::new()
             }
         };
@@ -297,11 +361,14 @@ pub(crate) fn arrow_down(current_line: &mut String) {
     }
 }
 
+/// Redraws the current input line in place — erases the row, redraws the
+/// prompt, then draws `text` after it. Updates `writer.x` to the end of
+/// the new text so the cursor lands in the right place.
 fn redraw_input_line(writer: &mut KWriter, text: &str) {
     let fh = font_h(writer.font_size);
     let fw = font_w(writer.font_size);
 
-    // erase the current input line area (just this row, from x=0 to screen width)
+    // erase the entire current row
     graphics::draw_rec(
         &writer.fb,
         (0, writer.y),
@@ -328,6 +395,9 @@ fn redraw_input_line(writer: &mut KWriter, text: &str) {
     writer.x = fw * (PROMPT.chars().count() + text.chars().count());
 }
 
+/// Sets the font size directly without redrawing. Use [`zoom_in`]/[`zoom_out`]
+/// for size changes that should also redraw history. This is used by the
+/// `font` shell command.
 pub(crate) fn set_font_size(font_size: RasterHeight) {
     if let Some(writer) = KWRITER.lock().as_mut() {
         writer.font_size = font_size;
