@@ -198,6 +198,11 @@ pub(crate) fn backspace() {
             writer.x -= fw;
         }
 
+        // keep logical input in sync with erased glyph
+        if writer.current_line.chars().count() > PROMPT.chars().count() {
+            writer.current_line.pop();
+        }
+
         // paint over the erased character with background color
         crate::graphics::draw_rec(
             &writer.fb,
@@ -392,7 +397,10 @@ fn redraw_input_line(writer: &mut KWriter, text: &str) {
         Some(writer.font_size),
     );
 
-    writer.x = fw * (PROMPT.chars().count() + text.chars().count());
+    writer.current_line.clear();
+    writer.current_line.push_str(PROMPT);
+    writer.current_line.push_str(text);
+    writer.x = fw * writer.current_line.chars().count();
 }
 
 /// Sets the font size directly without redrawing. Use [`zoom_in`]/[`zoom_out`]

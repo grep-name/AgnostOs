@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicUsize;
+use core::sync::atomic::AtomicUsize;
 
 use noto_sans_mono_bitmap::{FontWeight, RasterHeight};
 
