@@ -1,6 +1,9 @@
 use crate::{FONT_HEIGHT, FONT_WEIGHT, color::Color};
 use noto_sans_mono_bitmap::get_raster;
-use uefi::proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat};
+use uefi::{
+    boot::{self, OpenProtocolAttributes, OpenProtocolParams, ScopedProtocol},
+    proto::console::gop::{BltOp, BltPixel, FrameBuffer, GraphicsOutput, PixelFormat},
+};
 
 type PixelWriter = unsafe fn(&mut FrameBuffer, usize, &Color);
 
@@ -30,6 +33,38 @@ pub fn clear_background(gop: &mut GraphicsOutput, color: Color) {
     };
 
     gop.blt(op).expect("Failed to fill screen with color");
+}
+
+pub fn init_gop() -> ScopedProtocol<GraphicsOutput> {
+    let gop_handle = boot::get_handle_for_protocol::<GraphicsOutput>()
+        .expect("missing graphics output protocol");
+
+    let mut gop = unsafe {
+        boot::open_protocol::<GraphicsOutput>(
+            OpenProtocolParams {
+                handle: gop_handle,
+                agent: boot::image_handle(),
+                controller: None,
+            },
+            OpenProtocolAttributes::GetProtocol,
+        )
+        .expect("failed to open Graphics Output Protocol")
+    };
+
+    let mode = gop
+        .modes()
+        .filter(|mode| {
+            let (w, h) = mode.info().resolution();
+            w <= 1920 && h <= 1080
+        })
+        .max_by_key(|mode| {
+            let (w, h) = mode.info().resolution();
+            w * h
+        })
+        .expect("no graphics modes available");
+
+    gop.set_mode(&mode).expect("failed to set GOP mode");
+    gop // return owned, not a reference
 }
 
 /// Renders a rectangle on the screen, at the provided coordinates with the provided color and
