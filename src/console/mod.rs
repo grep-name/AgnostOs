@@ -48,10 +48,21 @@ pub fn init(fb: &Framebuffer) {
     });
 }
 
+impl KWriter {
+    fn check_scroll(&mut self, fh: usize) {
+        let threshold = self.fb.height.saturating_sub(3 * fh);
+        if self.y >= threshold {
+            let scroll_by = self.y - threshold + fh;
+            graphics::scroll_up(&self.fb, scroll_by);
+            self.y = threshold.saturating_sub(fh);
+        }
+    }
+}
+
 impl fmt::Write for KWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let width = self.fb.width;
-        let height = self.fb.height;
+
         let fh = font_h(self.font_size);
         let fw = font_w(self.font_size);
 
@@ -60,15 +71,11 @@ impl fmt::Write for KWriter {
                 self.history.push(core::mem::take(&mut self.current_line));
                 self.x = 0;
                 self.y += fh;
+                self.check_scroll(fh);
                 continue;
             }
 
             self.current_line.push(ch);
-
-            if self.y + fh >= height {
-                self.y = 0;
-                graphics::clear_background(&self.fb, color::BLACK);
-            }
 
             if self.x + fw >= width {
                 self.x = 0;
@@ -178,9 +185,15 @@ pub(crate) fn erase_cursor() {
 pub(crate) fn print_history() {
     if let Some(writer) = KWRITER.lock().as_mut() {
         let fh = font_h(writer.font_size);
-        let mut y = 0;
+        let max_lines = writer.fb.height / fh;
 
-        for line in writer.history.iter() {
+        // only show the tail that fits on screen
+        let lines: Vec<&String> = writer.history.iter().collect();
+        let start = lines.len().saturating_sub(max_lines);
+        let visible = &lines[start..];
+
+        let mut y = 0usize;
+        for line in visible {
             graphics::draw_text(
                 &writer.fb,
                 line,

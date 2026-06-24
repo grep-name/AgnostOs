@@ -153,6 +153,35 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
     }
 }
 
+/// Scrolls the framebuffer content up by `rows` pixel rows, clearing the freed strip at the bottom.
+pub fn scroll_up(fb: &Framebuffer, rows: usize) {
+    let bpp = 4usize; // bytes per pixel
+    for row in rows..fb.height {
+        for col in 0..fb.width {
+            let src = (row * fb.stride + col) * bpp;
+            let dst = ((row - rows) * fb.stride + col) * bpp;
+            unsafe {
+                for b in 0..bpp {
+                    let val = fb.ptr.add(src + b).read();
+                    fb.ptr.add(dst + b).write(val);
+                }
+            }
+        }
+    }
+    // clear the freed bottom strip
+    for row in (fb.height - rows)..fb.height {
+        for col in 0..fb.width {
+            let idx = (row * fb.stride + col) * bpp;
+            unsafe {
+                fb.ptr.add(idx).write(0);
+                fb.ptr.add(idx + 1).write(0);
+                fb.ptr.add(idx + 2).write(0);
+                fb.ptr.add(idx + 3).write(0);
+            }
+        }
+    }
+}
+
 /// Renders the provided text on the screen, at the provided coordinates with the provided color and font.
 ///
 /// **Example**

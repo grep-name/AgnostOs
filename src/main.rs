@@ -83,6 +83,10 @@ fn main() -> Status {
 fn set_graphics_mode(gop: &mut GraphicsOutput) {
     let mode = gop
         .modes()
+        .filter(|mode| {
+            let (w, h) = mode.info().resolution();
+            w <= 1920 && h <= 1080
+        })
         .max_by_key(|mode| {
             let (w, h) = mode.info().resolution();
             w * h
