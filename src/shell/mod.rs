@@ -4,7 +4,7 @@ use noto_sans_mono_bitmap::RasterHeight;
 use uefi::Status;
 
 use crate::{
-    HEAP_SIZE, HEAP_START, console,
+    HEAP_SIZE, HEAP_START, PROMPT, console,
     keyboard::{self, KeyboardEvent},
     kprint, kprintln,
 };
@@ -12,7 +12,7 @@ use crate::{
 pub fn init() -> Status {
     let mut line = String::new();
 
-    kprint!("> ");
+    kprint!("{PROMPT}");
     console::draw_cursor(); // draw cursor at the very beginning
 
     loop {
@@ -24,7 +24,7 @@ pub fn init() -> Status {
                         kprintln!();
                         run_command(&line);
                         line.clear();
-                        kprint!("> ");
+                        kprint!("{PROMPT}");
                     }
                     '\u{8}' => {
                         if line.pop().is_some() {
@@ -39,7 +39,7 @@ pub fn init() -> Status {
                 KeyboardEvent::CtrlC => {
                     kprintln!("^C");
                     line.clear();
-                    kprint!("> ");
+                    kprint!("{PROMPT}");
                 }
                 KeyboardEvent::ZoomIn => {
                     console::zoom_in();
@@ -54,9 +54,9 @@ pub fn init() -> Status {
                     console::arrow_down(&mut line);
                 }
                 KeyboardEvent::CtrlL => {
-                    run_command("clear");
+                    console::reset();
                     line.clear();
-                    kprint!("> ");
+                    kprint!("{PROMPT}");
                 }
             }
 

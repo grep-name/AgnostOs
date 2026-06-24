@@ -8,6 +8,8 @@ pub(crate) const FONT_HEIGHT: RasterHeight = RasterHeight::Size16;
 pub static HEAP_START: AtomicUsize = AtomicUsize::new(0);
 pub static HEAP_SIZE: AtomicUsize = AtomicUsize::new(0);
 
+const PROMPT: &str = "> ";
+
 /// Module that contains the code for our custom allocator.
 pub mod allocator;
 

@@ -3,7 +3,7 @@ use noto_sans_mono_bitmap::{RasterHeight, get_raster_width};
 use spin::Mutex;
 
 use crate::{
-    FONT_WEIGHT, color,
+    FONT_WEIGHT, PROMPT, color,
     graphics::{self, Framebuffer},
 };
 
@@ -208,7 +208,7 @@ pub(crate) fn zoom_in() {
         graphics::clear_background(&writer.fb, color::BLACK);
     }
     print_history();
-    kprint!("> ");
+    kprint!("{PROMPT}");
 }
 
 pub(crate) fn zoom_out() {
@@ -222,7 +222,7 @@ pub(crate) fn zoom_out() {
         graphics::clear_background(&writer.fb, color::BLACK);
     }
     print_history();
-    kprint!("> ");
+    kprint!("{PROMPT}");
 }
 
 pub(crate) fn arrow_up(current_line: &mut String) {
@@ -230,7 +230,7 @@ pub(crate) fn arrow_up(current_line: &mut String) {
         let commands: Vec<&String> = writer
             .history
             .iter()
-            .filter(|line| line.starts_with("> ") && line != &"^C" && line != &"")
+            .filter(|line| line.starts_with(PROMPT) && line != &"^C" && line != &"")
             .collect();
 
         if commands.is_empty() {
@@ -245,7 +245,7 @@ pub(crate) fn arrow_up(current_line: &mut String) {
 
         writer.history_index = Some(new_index);
 
-        let recalled = commands[new_index].trim_start_matches("> ").to_string();
+        let recalled = commands[new_index].trim_start_matches(PROMPT).to_string();
 
         redraw_input_line(writer, &recalled);
         current_line.clear();
@@ -258,7 +258,7 @@ pub(crate) fn arrow_down(current_line: &mut String) {
         let commands: Vec<&String> = writer
             .history
             .iter()
-            .filter(|line| line.starts_with("> "))
+            .filter(|line| line.starts_with(PROMPT) && line != &"^C" && line != &"")
             .collect();
 
         if commands.is_empty() {
@@ -269,7 +269,7 @@ pub(crate) fn arrow_down(current_line: &mut String) {
             None => return, // not browsing, nothing to do
             Some(i) if i + 1 < commands.len() => {
                 writer.history_index = Some(i + 1);
-                commands[i + 1].trim_start_matches("> ").to_string()
+                commands[i + 1].trim_start_matches(PROMPT).to_string()
             }
             Some(_) => {
                 writer.history_index = None; // past the newest, clear back to empty input
@@ -295,11 +295,9 @@ fn redraw_input_line(writer: &mut KWriter, text: &str) {
         color::BLACK,
     );
 
-    let prompt = "> ";
-
     graphics::draw_text(
         &writer.fb,
-        prompt,
+        PROMPT,
         (0, writer.y),
         color::WHITE,
         Some(writer.font_size),
@@ -308,12 +306,12 @@ fn redraw_input_line(writer: &mut KWriter, text: &str) {
     graphics::draw_text(
         &writer.fb,
         text,
-        (fw * prompt.chars().count(), writer.y),
+        (fw * PROMPT.chars().count(), writer.y),
         color::WHITE,
         Some(writer.font_size),
     );
 
-    writer.x = fw * (prompt.chars().count() + text.chars().count());
+    writer.x = fw * (PROMPT.chars().count() + text.chars().count());
 }
 
 pub(crate) fn set_font_size(font_size: RasterHeight) {
