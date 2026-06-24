@@ -14,7 +14,7 @@
 
 ## TODOS
 
-- Handle keyboard input
+- Improve scrollback UX (e.g., smoother paging/navigation)
 
 ## Contributing
 

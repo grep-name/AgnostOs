@@ -1,4 +1,4 @@
-use noto_sans_mono_bitmap::{RasterizedChar, get_raster};
+use noto_sans_mono_bitmap::{RasterHeight, RasterizedChar, get_raster};
 use uefi::proto::console::gop::{GraphicsOutput, PixelFormat};
 
 use crate::{FONT_HEIGHT, FONT_WEIGHT, color::Color};
@@ -153,24 +153,64 @@ pub fn draw_line(fb: &Framebuffer, (x1, y1): (i64, i64), (x2, y2): (i64, i64), c
     }
 }
 
-/// Renders the provided text on the screen, at the provided coordinates with the provided color and scale.
+/// Scrolls the framebuffer content up by `rows` pixel rows, clearing the freed strip at the bottom.
+pub fn scroll_up(fb: &Framebuffer, rows: usize) {
+    let bpp = 4usize; // bytes per pixel
+    for row in rows..fb.height {
+        for col in 0..fb.width {
+            let src = (row * fb.stride + col) * bpp;
+            let dst = ((row - rows) * fb.stride + col) * bpp;
+            unsafe {
+                for b in 0..bpp {
+                    let val = fb.ptr.add(src + b).read();
+                    fb.ptr.add(dst + b).write(val);
+                }
+            }
+        }
+    }
+    // clear the freed bottom strip
+    for row in (fb.height - rows)..fb.height {
+        for col in 0..fb.width {
+            let idx = (row * fb.stride + col) * bpp;
+            unsafe {
+                fb.ptr.add(idx).write(0);
+                fb.ptr.add(idx + 1).write(0);
+                fb.ptr.add(idx + 2).write(0);
+                fb.ptr.add(idx + 3).write(0);
+            }
+        }
+    }
+}
+
+/// Renders the provided text on the screen, at the provided coordinates with the provided color and font.
 ///
 /// **Example**
 ///
 /// ```rust
 /// use agnostos::Color;
 ///
-/// agnostos::graphics::draw_text(&fb, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 });
+/// agnostos::graphics::draw_text(&fb, "Random text to render", (100, 200), Color { r: 0, g: 0, b: 0 }, None);
 /// ```
-pub fn draw_text(fb: &Framebuffer, text: &str, (x, y): (usize, usize), color: Color) {
+pub fn draw_text(
+    fb: &Framebuffer,
+    text: &str,
+    (x, y): (usize, usize),
+    color: Color,
+    font_height: Option<RasterHeight>,
+) {
     let mut cursor_x = x;
 
     for ch in text.chars() {
         if ch == '\n' {
             break;
         }
+        let font_height = if font_height.is_some() {
+            font_height.unwrap()
+        } else {
+            FONT_HEIGHT
+        };
 
-        let char_raster = match get_raster(ch, FONT_WEIGHT, FONT_HEIGHT) {
+        let char_raster = match get_raster(ch, FONT_WEIGHT, font_height) {
             Some(r) => r,
             None => match get_raster('?', FONT_WEIGHT, FONT_HEIGHT) {
                 Some(r) => r,

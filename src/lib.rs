@@ -1,7 +1,14 @@
+use std::sync::atomic::AtomicUsize;
+
 use noto_sans_mono_bitmap::{FontWeight, RasterHeight};
 
 pub(crate) const FONT_WEIGHT: FontWeight = FontWeight::Regular;
 pub(crate) const FONT_HEIGHT: RasterHeight = RasterHeight::Size16;
+
+pub static HEAP_START: AtomicUsize = AtomicUsize::new(0);
+pub static HEAP_SIZE: AtomicUsize = AtomicUsize::new(0);
+
+const PROMPT: &str = "> ";
 
 /// Module that contains the code for our custom allocator.
 pub mod allocator;
@@ -14,6 +21,13 @@ pub mod graphics;
 pub mod uefi_graphics;
 
 /// Module that contains the code for printing text to the screen same way println! does
-pub mod kprintln;
+pub mod console;
 
+/// Module that contains the code for using Colors
 pub mod color;
+
+/// Module that contains the code for handling keyboard.
+pub mod keyboard;
+
+/// Module that contains the code for shell.
+pub mod shell;

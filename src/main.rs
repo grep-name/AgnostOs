@@ -5,8 +5,10 @@ use core::time::Duration;
 
 extern crate alloc;
 
-use agnostos::{allocator::AgnostosAllocator, color, graphics::Framebuffer, kprintln};
-use alloc::{format, string::String};
+use agnostos::{HEAP_SIZE, HEAP_START, shell};
+use agnostos::{allocator::AgnostosAllocator, color, graphics::Framebuffer};
+use core::sync::atomic::Ordering;
+
 use uefi::{
     boot::{MemoryType, OpenProtocolAttributes, OpenProtocolParams},
     mem::memory_map::MemoryMap,
@@ -43,11 +45,11 @@ fn main() -> Status {
     set_graphics_mode(gop);
 
     let fb = Framebuffer::new(gop);
-    agnostos::kprintln::init(&fb);
+    agnostos::console::init(&fb);
 
-    uefi::println!("Exiting boot services in 3 seconds...");
+    uefi::println!("Exiting boot services in 1 seconds...");
 
-    let dr = Duration::from_millis(3000);
+    let dr = Duration::from_millis(1000);
     boot::stall(dr);
 
     let memory_map = unsafe { boot::exit_boot_services(Some(MemoryType::LOADER_DATA)) };
@@ -68,69 +70,27 @@ fn main() -> Status {
     }
 
     // Giving the allocator the pointer to heap
+    HEAP_START.store(heap_start, Ordering::Relaxed);
+    HEAP_SIZE.store(heap_size, Ordering::Relaxed);
+
     ALLOCATOR.init(heap_start, heap_size);
-
-    let s = format!(
-        "heap_start: {} \n heap_end: {} \n heap_size: {}mb",
-        heap_start,
-        heap_start + heap_size,
-        heap_size / (1024 * 1024)
-    );
-
-    let msg = stress_test();
 
     agnostos::graphics::clear_background(&fb, color::BLACK);
 
-    kprintln!("{}", &msg);
-    kprintln!("{}", &s);
-
-    kprintln!("------------------------------------------");
-
-    kprintln!("comparing both the versions of rendering text");
-    kprintln!("survived 10000 allocs!");
-
-    loop {}
+    return shell::init();
 }
 
 fn set_graphics_mode(gop: &mut GraphicsOutput) {
     let mode = gop
         .modes()
-        .find(|mode| {
-            let info = mode.info();
-            info.resolution() == (1024, 768)
+        .filter(|mode| {
+            let (w, h) = mode.info().resolution();
+            w <= 1920 && h <= 1080
         })
-        .unwrap();
-
+        .max_by_key(|mode| {
+            let (w, h) = mode.info().resolution();
+            w * h
+        })
+        .expect("no graphics modes available");
     gop.set_mode(&mode).expect("Failed to set graphics mode");
-}
-
-/// Allocates 10000 vectors to stress test our allocator implementation
-fn stress_test() -> String {
-    // Stress testing
-    let addr1;
-    let addr2;
-
-    {
-        let v: alloc::vec::Vec<u8> = alloc::vec![1, 2, 3];
-        addr1 = v.as_ptr() as usize;
-    }
-
-    {
-        let v2: alloc::vec::Vec<u8> = alloc::vec![4, 5, 6];
-        addr2 = v2.as_ptr() as usize;
-    }
-
-    for _ in 0..10000 {
-        let _: alloc::vec::Vec<u8> = alloc::vec![0u8; 1024];
-    }
-
-    // if dealloc works, addr1 and addr2 should be the same (or very close)
-    let msg = format!(
-        "addr1: {:#x} addr2: {:#x} same: {}",
-        addr1,
-        addr2,
-        addr1 == addr2
-    );
-
-    return msg;
 }
